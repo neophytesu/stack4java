@@ -14,6 +14,7 @@ import http.servlet.NotFoundServlet;
 import http.servlet.ServerErrorServlet;
 import http.servlet.StaticResourceServlet;
 import lombok.Setter;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -26,6 +27,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HttpServer {
+
+    private final HttpServletContext servletContext = new HttpServletContext();
 
     private final int port;
 
@@ -60,6 +63,22 @@ public class HttpServer {
     }
 
     public void start() {
+        try (InputStream in = HttpServer.class.getClassLoader().getResourceAsStream("application.yml")) {
+            if (in != null) {
+                Map<String, Object> root = new Yaml().load(in);
+                if (root != null) {
+                    Object sc = root.get("servletContext");
+                    if (sc instanceof Map<?, ?> scMap) {
+                        Object initParams = scMap.get("initParams");
+                        if (initParams instanceof Map<?, ?> initParamsMap) {
+                            initParamsMap.forEach((key, value) -> servletContext.addInitParam(String.valueOf(key), String.valueOf(value)));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("读取初始化配置失败！");
+        }
         urlMappingRegistry.addMapping("/static/*", new StaticResourceServlet());
         urlMappingRegistry.addMapping("/404", new NotFoundServlet());
         urlMappingRegistry.addMapping("/error", new ServerErrorServlet());
@@ -157,6 +176,7 @@ public class HttpServer {
                 if (httpRequest == null) {
                     break;
                 }
+                httpRequest.setServletContext(this.servletContext);
                 httpRequest.setHttpServer(this);
                 boolean isClosed = httpHelper.checkClose(httpRequest);
                 HttpResponse httpResponse = new HttpResponse();
@@ -206,7 +226,10 @@ public class HttpServer {
             if (!responseSent) {
                 HttpResponse errorResponse = new HttpResponse();
                 HttpServlet servlet = urlMappingRegistry.resolve("/error");
-                servlet.service(new HttpRequest(), errorResponse);
+                HttpRequest httpRequest = new HttpRequest();
+                httpRequest.setServletContext(this.servletContext);
+                httpRequest.setHttpServer(this);
+                servlet.service(httpRequest, errorResponse);
                 output.write(errorResponse.toString().getBytes());
                 output.write(errorResponse.getBody());
                 output.flush();

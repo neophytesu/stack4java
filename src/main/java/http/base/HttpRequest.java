@@ -1,6 +1,7 @@
 package http.base;
 
 import http.HttpServer;
+import http.HttpServletContext;
 import http.dispatch.RequestDispatcher;
 import http.dispatch.RequestDispatcherImpl;
 import lombok.Data;
@@ -10,6 +11,9 @@ import java.util.Map;
 
 @Data
 public class HttpRequest {
+
+    private HttpServletContext servletContext;
+
     private String method;
     private String path;
     private String version;

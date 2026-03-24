@@ -1,0 +1,4 @@
+servletContext:
+  initParams:
+    appName: suyu
+    env: dev
