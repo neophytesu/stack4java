@@ -19,13 +19,13 @@ public class HelloTest {
                 response.getHeaders().put("Content-Type", "text/plain;charset=utf-8");
                 response.getHeaders().put("Content-Length", String.valueOf(response.getBody().length));
             }
-        });
+        },"success1");
         server.addServlet("/su", new SuccessServlet() {
             @Override
             public void service(HttpRequest request, HttpResponse response) throws IOException {
                 request.getRequestDispatcher("/static").forward(request, response);
             }
-        });
+        },"success2");
         server.start();
     }
 }

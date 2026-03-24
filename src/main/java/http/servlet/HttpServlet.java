@@ -1,5 +1,6 @@
 package http.servlet;
 
+import http.HttpServletConfig;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 
@@ -9,7 +10,7 @@ public interface HttpServlet {
 
     void service(HttpRequest request, HttpResponse response) throws IOException;
 
-    default void init() {
+    default void init(HttpServletConfig config) {
     }
 
     default void destroy() {

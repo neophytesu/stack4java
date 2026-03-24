@@ -34,6 +34,7 @@ public class HttpServer {
 
     private final List<HttpServlet> initServletOrders = new ArrayList<>();
 
+    private final LinkedHashMap<HttpServlet, HttpServletConfig> registeredServlets = new LinkedHashMap<>();
 
     private final List<HttpFilter> filters = new ArrayList<>();
 
@@ -54,7 +55,15 @@ public class HttpServer {
         this.port = port;
     }
 
-    public void addServlet(String path, HttpServlet servlet) {
+    public void addServlet(String path, HttpServlet servlet, String servletName, HashMap<String, String> initParams) {
+        HttpServletConfig servletConfig = new HttpServletConfig(this.servletContext, new HashMap<>(initParams), servletName);
+        registeredServlets.put(servlet, servletConfig);
+        urlMappingRegistry.addMapping(httpHelper.normalizePath(path), servlet);
+    }
+
+    public void addServlet(String path, HttpServlet servlet, String servletName) {
+        HttpServletConfig servletConfig = new HttpServletConfig(this.servletContext, new HashMap<>(), servletName);
+        registeredServlets.put(servlet, servletConfig);
         urlMappingRegistry.addMapping(httpHelper.normalizePath(path), servlet);
     }
 
@@ -79,15 +88,19 @@ public class HttpServer {
         } catch (Exception e) {
             System.out.println("读取初始化配置失败！");
         }
-        urlMappingRegistry.addMapping("/static/*", new StaticResourceServlet());
-        urlMappingRegistry.addMapping("/404", new NotFoundServlet());
-        urlMappingRegistry.addMapping("/error", new ServerErrorServlet());
-        urlMappingRegistry.getServlets().forEach(servlet -> {
+        StaticResourceServlet staticResourceServlet = new StaticResourceServlet();
+        registeredServlets.put(staticResourceServlet, new HttpServletConfig(this.servletContext, new HashMap<>(), "static"));
+        urlMappingRegistry.addMapping("/static/*", staticResourceServlet);
+        NotFoundServlet notFoundServlet = new NotFoundServlet();
+        registeredServlets.put(notFoundServlet, new HttpServletConfig(this.servletContext, new HashMap<>(), "notFound"));
+        urlMappingRegistry.addMapping("/404", notFoundServlet);
+        ServerErrorServlet serverErrorServlet = new ServerErrorServlet();
+        registeredServlets.put(serverErrorServlet, new HttpServletConfig(this.servletContext, new HashMap<>(), "serverError"));
+        urlMappingRegistry.addMapping("/error", serverErrorServlet);
+        registeredServlets.forEach((key, value) -> {
             try {
-                if (!initServletOrders.contains(servlet)) {
-                    servlet.init();
-                    initServletOrders.add(servlet);
-                }
+                key.init(value);
+                initServletOrders.add(key);
             } catch (Exception e) {
                 System.out.println(e.getMessage());
             }
