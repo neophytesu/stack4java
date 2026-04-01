@@ -41,7 +41,7 @@ public class DispatcherServlet implements HttpServlet {
         }
         try {
             handler.handle(request, response);
-        }  catch (Exception e) {
+        }  catch (Throwable e) {
             Throwable t=e;
             if (e instanceof InvocationTargetException) {
                 t=((InvocationTargetException)e).getTargetException();
