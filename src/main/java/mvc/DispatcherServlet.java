@@ -6,11 +6,15 @@ import http.base.HttpRequest;
 import http.base.HttpResponse;
 import http.servlet.HttpServlet;
 import lombok.Getter;
+import mvc.annotation.Controller;
+import mvc.annotation.GetMapping;
 import mvc.controller.HelloController;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,12 +45,12 @@ public class DispatcherServlet implements HttpServlet {
         }
         try {
             handler.handle(request, response);
-        }  catch (Throwable e) {
-            Throwable t=e;
+        } catch (Throwable e) {
+            Throwable t = e;
             if (e instanceof InvocationTargetException) {
-                t=((InvocationTargetException)e).getTargetException();
-                if (t==null) {
-                    t=e;
+                t = ((InvocationTargetException) e).getTargetException();
+                if (t == null) {
+                    t = e;
                 }
             }
             t.printStackTrace();
@@ -64,16 +68,44 @@ public class DispatcherServlet implements HttpServlet {
         HttpServlet.super.init(config);
         this.servletConfig = config;
         try {
-            registerRoutes();
+            registerController(new HelloController());
         } catch (Exception e) {
             System.out.println("Controller Register Failed!");
             System.out.println(e.getCause().getMessage());
         }
     }
 
-    private void registerRoutes() throws NoSuchMethodException {
-        HelloController helloController = new HelloController();
-        handlerMap.put("GET /api/hello", new ReflectiveHandler(helloController, HelloController.class.getMethod("hello", HttpRequest.class, HttpResponse.class)));
+    private void registerController(Object controller) {
+        Class<?> clazz = controller.getClass();
+        String basePath = "";
+        if (clazz.isAnnotationPresent(Controller.class)) {
+            basePath = clazz.getAnnotation(Controller.class).value();
+        }
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (!Modifier.isPublic(method.getModifiers())) {
+                continue;
+            }
+            GetMapping ann = method.getAnnotation(GetMapping.class);
+            if (ann == null) {
+                continue;
+            }
+            String fullPath = normalize(basePath) + normalize(ann.value());
+            String key = "GET " + fullPath;
+            if (handlerMap.containsKey(key)) {
+                throw new RuntimeException("Thera are two method use same path!");
+            }
+            handlerMap.put(key, new ReflectiveHandler(controller, method));
+        }
+    }
+
+    private String normalize(String path) {
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        if (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 
     @Override
