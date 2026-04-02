@@ -7,19 +7,22 @@ import http.base.HttpResponse;
 import http.servlet.HttpServlet;
 import lombok.Getter;
 import mvc.annotation.Controller;
-import mvc.annotation.GetMapping;
+import mvc.annotation.request.GetMapping;
+import mvc.annotation.request.RequestMapping;
 import mvc.controller.HelloController;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 
 public class DispatcherServlet implements HttpServlet {
 
@@ -71,7 +74,7 @@ public class DispatcherServlet implements HttpServlet {
         }
     }
 
-    private void registerController(Object controller) {
+    private void registerController(Object controller) throws Exception {
         Class<?> clazz = controller.getClass();
         String basePath = "";
         if (clazz.isAnnotationPresent(Controller.class)) {
@@ -81,12 +84,16 @@ public class DispatcherServlet implements HttpServlet {
             if (!Modifier.isPublic(method.getModifiers())) {
                 continue;
             }
-            GetMapping ann = method.getAnnotation(GetMapping.class);
+            Annotation ann = Arrays.stream(method.getAnnotations())
+                    .filter(annotation -> annotation.annotationType().isAnnotationPresent(RequestMapping.class))
+                    .findFirst().orElse(null);
             if (ann == null) {
                 continue;
             }
-            String fullPath = normalize(basePath) + normalize(ann.value());
-            String key = "GET " + fullPath;
+            String meta = ann.annotationType().getAnnotation(RequestMapping.class).value();
+            String subPath = ann.annotationType().getMethod("value").invoke(ann).toString();
+            String fullPath = normalize(basePath) + normalize(subPath);
+            String key = meta + " " + fullPath;
             if (handlerMap.containsKey(key)) {
                 throw new RuntimeException("Thera are two method use same path!");
             }

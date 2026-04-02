@@ -3,7 +3,7 @@ package mvc.controller;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 import mvc.annotation.Controller;
-import mvc.annotation.GetMapping;
+import mvc.annotation.request.GetMapping;
 import mvc.annotation.RequestParam;
 
 import java.nio.charset.StandardCharsets;

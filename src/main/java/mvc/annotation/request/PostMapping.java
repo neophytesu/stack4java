@@ -1,10 +1,11 @@
-package mvc.annotation;
+package mvc.annotation.request;
 
 import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Documented
-public @interface GetMapping {
+@RequestMapping("POST")
+public @interface PostMapping {
     String value() default "";
 }
