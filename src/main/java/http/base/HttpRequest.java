@@ -8,6 +8,7 @@ import lombok.Data;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Data
 public class HttpRequest {
@@ -21,6 +22,7 @@ public class HttpRequest {
     private Map<String, String> headers;
     private Map<String, String> params = new HashMap<>();
     private Map<String, String> cookies;
+    private Map<String, Object> attributes = new HashMap<>();
 
     private byte[] body;
     private Map<String, String> bodyParams = new HashMap<>();

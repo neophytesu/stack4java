@@ -12,6 +12,7 @@ import mvc.controller.HelloController;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -30,7 +31,7 @@ public class DispatcherServlet implements HttpServlet {
     private final Map<String, Handler> handlerMap = new HashMap<>();
 
     @Override
-    public void service(HttpRequest request, HttpResponse response) {
+    public void service(HttpRequest request, HttpResponse response) throws IOException {
         String method = request.getMethod();
         String path = httpHelper.normalizePath(request.getPath());
         String key = method + " " + path;
@@ -53,13 +54,8 @@ public class DispatcherServlet implements HttpServlet {
                     t = e;
                 }
             }
-            t.printStackTrace();
-            response.setStatusCode(500);
-            response.setStatusDesc("Internal Server Error");
-            response.setBody("Internal Server Error".getBytes(StandardCharsets.UTF_8));
-            response.getHeaders().put("Content-Type", "text/plain;charset=utf-8");
-            response.getHeaders().put("Content-Length", String.valueOf(response.getBody().length));
-            System.out.println(e.getCause().getMessage());
+            request.getAttributes().put("exception", t);
+            request.getRequestDispatcher("/error").forward(request, response);
         }
     }
 
