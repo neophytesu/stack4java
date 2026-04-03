@@ -1,7 +1,7 @@
 package mvc.handler;
 
 import http.base.HttpResponse;
-import mvc.annotation.ResponseBody;
+import mvc.annotation.param.ResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Method;

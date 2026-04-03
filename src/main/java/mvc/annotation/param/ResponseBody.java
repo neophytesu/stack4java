@@ -1,4 +1,4 @@
-package mvc.annotation;
+package mvc.annotation.param;
 
 import java.lang.annotation.*;
 

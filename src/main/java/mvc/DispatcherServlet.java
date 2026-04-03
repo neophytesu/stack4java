@@ -7,8 +7,10 @@ import http.base.HttpResponse;
 import http.servlet.HttpServlet;
 import lombok.Getter;
 import mvc.annotation.Controller;
-import mvc.annotation.request.GetMapping;
 import mvc.annotation.request.RequestMapping;
+import mvc.common.route.SegType;
+import mvc.common.route.Segment;
+import mvc.common.route.RouteEntry;
 import mvc.controller.HelloController;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
@@ -19,10 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class DispatcherServlet implements HttpServlet {
 
@@ -33,12 +32,30 @@ public class DispatcherServlet implements HttpServlet {
 
     private final Map<String, Handler> handlerMap = new HashMap<>();
 
+    private final List<RouteEntry> routeEntryList = new ArrayList<>();
+
     @Override
     public void service(HttpRequest request, HttpResponse response) throws IOException {
         String method = request.getMethod();
         String path = httpHelper.normalizePath(request.getPath());
         String key = method + " " + path;
-        Handler handler = handlerMap.get(key);
+        Handler handler = null;
+        if (handlerMap.containsKey(key)) {
+            request.getAttributes().remove("pathVariables");
+            handler = handlerMap.get(key);
+        } else {
+            for (RouteEntry routeEntry : routeEntryList) {
+                if (!routeEntry.getMethod().equals(method)) {
+                    continue;
+                }
+                Optional<Map<String, String>> vars = routeEntry.tryMatch(path);
+                if (vars.isPresent()) {
+                    request.getAttributes().put("pathVariables", vars.get());
+                    handler = routeEntry.getHandler();
+                    break;
+                }
+            }
+        }
         if (handler == null) {
             response.setStatusCode(404);
             response.setStatusDesc("Not Found");
@@ -93,11 +110,35 @@ public class DispatcherServlet implements HttpServlet {
             String meta = ann.annotationType().getAnnotation(RequestMapping.class).value();
             String subPath = ann.annotationType().getMethod("value").invoke(ann).toString();
             String fullPath = normalize(basePath) + normalize(subPath);
-            String key = meta + " " + fullPath;
-            if (handlerMap.containsKey(key)) {
-                throw new RuntimeException("Thera are two method use same path!");
+            if (fullPath.contains("{") && fullPath.contains("}")) {
+                RouteEntry routeEntry = new RouteEntry();
+                routeEntry.setMethod(meta);
+                routeEntry.setHandler(new ReflectiveHandler(controller, method));
+                List<Segment> patternSegments = new ArrayList<>();
+                for (String s : fullPath.split("/")) {
+                    if (s.isBlank()) {
+                        continue;
+                    }
+                    Segment segment = new Segment();
+                    if (s.startsWith("{") && s.endsWith("}")) {
+                        s = s.substring(1, s.length() - 1);
+                        segment.setName(s);
+                        segment.setType(SegType.VARIABLE);
+                    } else {
+                        segment.setName(s);
+                        segment.setType(SegType.LITERAL);
+                    }
+                    patternSegments.add(segment);
+                }
+                routeEntry.setPatternSegments(patternSegments);
+                routeEntryList.add(routeEntry);
+            } else {
+                String key = meta + " " + fullPath;
+                if (handlerMap.containsKey(key)) {
+                    throw new RuntimeException("There are two method use same path!");
+                }
+                handlerMap.put(key, new ReflectiveHandler(controller, method));
             }
-            handlerMap.put(key, new ReflectiveHandler(controller, method));
         }
     }
 

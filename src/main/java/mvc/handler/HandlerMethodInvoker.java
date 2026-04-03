@@ -2,11 +2,13 @@ package mvc.handler;
 
 import http.base.HttpRequest;
 import http.base.HttpResponse;
-import mvc.annotation.RequestParam;
+import mvc.annotation.param.PathVariable;
+import mvc.annotation.param.RequestParam;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.Map;
 
 public class HandlerMethodInvoker {
     Object invoke(Object controller, Method method, HttpRequest request, HttpResponse response) throws Throwable {
@@ -31,6 +33,10 @@ public class HandlerMethodInvoker {
         }
         if (type.equals(HttpRequest.class)) {
             return request;
+        }
+        if (param.isAnnotationPresent(PathVariable.class)
+                && request.getAttributes().get("pathVariables") instanceof Map<?, ?> pathVariables) {
+            return pathVariables.get(param.getAnnotation(PathVariable.class).value());
         }
         if (type.equals(String.class) && param.isAnnotationPresent(RequestParam.class)) {
             return request.getParamValue(param.getAnnotation(RequestParam.class).value());
