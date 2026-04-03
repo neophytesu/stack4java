@@ -1,6 +1,7 @@
 package mvc.handler;
 
 import http.base.HttpResponse;
+import mvc.annotation.ResponseBody;
 import tools.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.Method;
@@ -16,8 +17,11 @@ public class HandlerReturnResolver {
         if (returnType.equals(void.class)) {
             return;
         }
+        boolean hasResponseBody = method.isAnnotationPresent(ResponseBody.class) || method.getDeclaringClass().isAnnotationPresent(ResponseBody.class);
         if (result instanceof String s) {
-            buildResponse(response, s, "text/plain;charset=utf-8");
+            if (hasResponseBody) {
+                buildResponse(response, s, "text/plain;charset=utf-8");
+            }
             return;
         }
         if (result == null) {
@@ -25,8 +29,10 @@ public class HandlerReturnResolver {
             response.setStatusCode(204);
             return;
         }
-        String json = objectMapper.writeValueAsString(result);
-        buildResponse(response, json, "application/json;charset=utf-8");
+        if (hasResponseBody) {
+            String json = objectMapper.writeValueAsString(result);
+            buildResponse(response, json, "application/json;charset=utf-8");
+        }
     }
 
     private void buildResponse(HttpResponse response, String data, String contentType) {
