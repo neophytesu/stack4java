@@ -3,14 +3,18 @@ package mvc.handler;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 import mvc.annotation.param.PathVariable;
+import mvc.annotation.param.RequestBody;
 import mvc.annotation.param.RequestParam;
+import tools.jackson.databind.ObjectMapper;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class HandlerMethodInvoker {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     Object invoke(Object controller, Method method, HttpRequest request, HttpResponse response) throws Throwable {
         Class<?>[] types = method.getParameterTypes();
         Parameter[] params = method.getParameters();
@@ -41,6 +45,28 @@ public class HandlerMethodInvoker {
         if (type.equals(String.class) && param.isAnnotationPresent(RequestParam.class)) {
             return request.getParamValue(param.getAnnotation(RequestParam.class).value());
         }
+        if (param.isAnnotationPresent(RequestBody.class)) {
+            String json = request.getBodyJson();
+            if (json == null && request.getBody() != null) {
+                json = new String(request.getBody(), StandardCharsets.UTF_8);
+            }
+            boolean required = param.getAnnotation(RequestBody.class).required();
+            if ((json == null || json.isBlank()) && required) {
+                throw new RuntimeException("request's json body is blank");
+            }
+            if ((json == null || json.isBlank()) && !required) {
+                if (param.getType().isPrimitive()) {
+                    return getPrimitiveDefaultValue(param.getType());
+                }
+                return null;
+            }
+            Type t = param.getParameterizedType();
+            return objectMapper.readValue(json, objectMapper.getTypeFactory().constructType(t));
+        }
         throw new RuntimeException("unsupported argument type");
+    }
+
+    private Object getPrimitiveDefaultValue(Class<?> type) {
+        return Array.get(Array.newInstance(type, 1), 0);
     }
 }
