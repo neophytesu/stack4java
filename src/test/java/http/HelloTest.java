@@ -27,7 +27,7 @@ public class HelloTest {
                 request.getRequestDispatcher("/static").forward(request, response);
             }
         }, "success2");
-        server.addServlet("/api/*", new DispatcherServlet(), "dispatcher");
+        server.addServlet("/api/*", new DispatcherServlet(null, null), "dispatcher");
         server.start();
     }
 }

@@ -5,13 +5,14 @@ import http.HttpServletConfig;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 import http.servlet.HttpServlet;
+import ioc.AppConfig;
+import ioc.DefaultBeanFactory;
 import lombok.Getter;
 import mvc.annotation.Controller;
 import mvc.annotation.request.RequestMapping;
 import mvc.common.route.SegType;
 import mvc.common.route.Segment;
 import mvc.common.route.RouteEntry;
-import mvc.controller.HelloController;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
 
@@ -33,6 +34,14 @@ public class DispatcherServlet implements HttpServlet {
     private final Map<String, Handler> handlerMap = new HashMap<>();
 
     private final List<RouteEntry> routeEntryList = new ArrayList<>();
+
+    private DefaultBeanFactory beanFactory;
+    private AppConfig appConfig;
+
+    public DispatcherServlet(DefaultBeanFactory beanFactory, AppConfig appConfig) {
+        this.beanFactory = beanFactory;
+        this.appConfig = appConfig;
+    }
 
     @Override
     public void service(HttpRequest request, HttpResponse response) throws IOException {
@@ -84,7 +93,9 @@ public class DispatcherServlet implements HttpServlet {
         HttpServlet.super.init(config);
         this.servletConfig = config;
         try {
-            registerController(new HelloController());
+            for (Class<?> clazz : this.appConfig.controllerClasses()) {
+                registerController(beanFactory.getBean(clazz));
+            }
         } catch (Exception e) {
             System.out.println("Controller Register Failed!");
             System.out.println(e.getCause().getMessage());
