@@ -1,4 +1,4 @@
-package ioc;
+package ioc.bean;
 
 import ioc.annotation.Bean;
 

@@ -1,4 +1,4 @@
-package ioc;
+package ioc.bean;
 
 public class AppConfig {
     public Class<?>[] controllerClasses() throws Exception {

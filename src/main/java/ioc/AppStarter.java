@@ -1,13 +1,9 @@
 package ioc;
 
 import http.HttpServer;
-import http.base.HttpRequest;
-import http.base.HttpResponse;
-import http.servlet.SuccessServlet;
+import ioc.bean.AppConfig;
+import ioc.bean.DefaultBeanFactory;
 import mvc.DispatcherServlet;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 public class AppStarter {
     static void main(String[] args) throws Exception {

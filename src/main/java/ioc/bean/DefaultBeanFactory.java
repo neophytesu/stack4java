@@ -1,25 +1,24 @@
-package ioc;
+package ioc.bean;
 
 import ioc.annotation.Autowired;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DefaultBeanFactory {
     ConcurrentHashMap<Class<?>, Object> singletonMap = new ConcurrentHashMap<>();
-    Set<Class<?>> registeredTypes = new HashSet<>();
+
+    private final BeanDefinitionRegistry beanDefinitionRegistry = new BeanDefinitionRegistry();
 
     public void register(Class<?> type) throws Exception {
-        registeredTypes.add(type);
+        beanDefinitionRegistry.registerBeanDefinition(type);
     }
 
     public void register(Object instance) {
-        registeredTypes.add(instance.getClass());
+        beanDefinitionRegistry.registerBeanDefinition(instance.getClass());
         singletonMap.put(instance.getClass(), instance);
     }
 
@@ -27,7 +26,7 @@ public class DefaultBeanFactory {
         if (type.isPrimitive()) {
             throw new RuntimeException("unsupported primitive type");
         }
-        if (!registeredTypes.contains(type)) {
+        if (!beanDefinitionRegistry.containsBeanDefinition(type.getName())) {
             throw new IllegalStateException("Unknown bean type: " + type);
         }
         return singletonMap.computeIfAbsent(type, clazz -> {
