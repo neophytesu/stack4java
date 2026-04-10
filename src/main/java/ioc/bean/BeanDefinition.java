@@ -1,5 +1,6 @@
 package ioc.bean;
 
+import ioc.enums.BeanScope;
 import lombok.Builder;
 import lombok.Data;
 
@@ -9,6 +10,6 @@ public class BeanDefinition {
 
     private String beanName;
     private Class<?> beanClass;
-    private String scope;
+    private BeanScope scope;
     private boolean primary;
 }
