@@ -2,6 +2,7 @@ package mvc.handler;
 
 import http.base.HttpRequest;
 import http.base.HttpResponse;
+import mvc.annotation.param.ResponseBody;
 import mvc.view.interfaces.ViewResolver;
 
 import java.lang.reflect.Method;
@@ -22,6 +23,8 @@ public class ReflectiveHandler implements Handler {
 
     @Override
     public void handle(HttpRequest request, HttpResponse response) throws Throwable {
+        Boolean hasResponseBody = method.isAnnotationPresent(ResponseBody.class) || method.getDeclaringClass().isAnnotationPresent(ResponseBody.class);
+        request.getAttributes().put("mvc.apiError", hasResponseBody);
         Object result = handlerMethodInvoker.invoke(controller, method, request, response);
         handlerReturnResolver.resolve(result, method, request, response);
     }

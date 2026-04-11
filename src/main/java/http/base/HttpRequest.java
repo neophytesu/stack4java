@@ -35,6 +35,9 @@ public class HttpRequest {
     private boolean isForward = false;
 
     public String getHeadValue(String key) {
+        if (headers == null) {
+            return null;
+        }
         return headers.get(key.toLowerCase());
     }
 

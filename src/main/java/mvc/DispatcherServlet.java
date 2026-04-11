@@ -5,6 +5,7 @@ import http.HttpServletConfig;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 import http.servlet.HttpServlet;
+import mvc.handler.GlobalExceptionHandler;
 import spring.ioc.bean.AppConfig;
 import spring.core.DefaultBeanFactory;
 import lombok.Getter;
@@ -41,6 +42,8 @@ public class DispatcherServlet implements HttpServlet {
     private final AppConfig appConfig;
 
     private ViewResolver viewResolver;
+
+    private final GlobalExceptionHandler globalExceptionHandler = new GlobalExceptionHandler();
 
     public DispatcherServlet(DefaultBeanFactory beanFactory, AppConfig appConfig) {
         this.beanFactory = beanFactory;
@@ -80,16 +83,19 @@ public class DispatcherServlet implements HttpServlet {
         try {
             handler.handle(request, response);
         } catch (Throwable e) {
-            Throwable t = e;
-            if (e instanceof InvocationTargetException) {
-                t = ((InvocationTargetException) e).getTargetException();
-                if (t == null) {
-                    t = e;
-                }
-            }
-            request.getAttributes().put("exception", t);
-            request.getRequestDispatcher("/error").forward(request, response);
+            globalExceptionHandler.resolve(unwrapInvocationTarget(e), request, response);
         }
+    }
+
+    private Throwable unwrapInvocationTarget(Throwable e) {
+        Throwable t = e;
+        if (e instanceof InvocationTargetException) {
+            t = ((InvocationTargetException) e).getTargetException();
+            if (t == null) {
+                return e;
+            }
+        }
+        return t;
     }
 
     @Override
