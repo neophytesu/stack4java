@@ -15,6 +15,9 @@ import mvc.common.route.Segment;
 import mvc.common.route.RouteEntry;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
+import mvc.view.PrefixSuffixViewResolver;
+import mvc.view.interfaces.View;
+import mvc.view.interfaces.ViewResolver;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -35,8 +38,10 @@ public class DispatcherServlet implements HttpServlet {
 
     private final List<RouteEntry> routeEntryList = new ArrayList<>();
 
-    private DefaultBeanFactory beanFactory;
-    private AppConfig appConfig;
+    private final DefaultBeanFactory beanFactory;
+    private final AppConfig appConfig;
+
+    private ViewResolver viewResolver;
 
     public DispatcherServlet(DefaultBeanFactory beanFactory, AppConfig appConfig) {
         this.beanFactory = beanFactory;
@@ -92,6 +97,7 @@ public class DispatcherServlet implements HttpServlet {
     public void init(HttpServletConfig config) {
         HttpServlet.super.init(config);
         this.servletConfig = config;
+        viewResolver = (ViewResolver) beanFactory.getBean(PrefixSuffixViewResolver.class);
         try {
             for (Class<?> clazz : this.appConfig.controllerClasses()) {
                 registerController(beanFactory.getBean(clazz));
@@ -124,7 +130,7 @@ public class DispatcherServlet implements HttpServlet {
             if (fullPath.contains("{") && fullPath.contains("}")) {
                 RouteEntry routeEntry = new RouteEntry();
                 routeEntry.setMethod(meta);
-                routeEntry.setHandler(new ReflectiveHandler(controller, method));
+                routeEntry.setHandler(new ReflectiveHandler(controller, method, viewResolver));
                 List<Segment> patternSegments = new ArrayList<>();
                 for (String s : fullPath.split("/")) {
                     if (s.isBlank()) {
@@ -148,7 +154,7 @@ public class DispatcherServlet implements HttpServlet {
                 if (handlerMap.containsKey(key)) {
                     throw new RuntimeException("There are two method use same path!");
                 }
-                handlerMap.put(key, new ReflectiveHandler(controller, method));
+                handlerMap.put(key, new ReflectiveHandler(controller, method, viewResolver));
             }
         }
     }
