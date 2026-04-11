@@ -10,6 +10,7 @@ import mvc.annotation.request.GetMapping;
 import mvc.annotation.param.RequestParam;
 import mvc.annotation.request.PostMapping;
 import mvc.view.ModelAndView;
+import spring.service.interfaces.MyNameService;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,12 +19,12 @@ import java.util.Map;
 public class HelloController {
 
     @Autowired
-    Hyc hyc;
+    MyNameService myNameService;
 
     @GetMapping("/hello/{love}")
     @ResponseBody
     public String hello(@RequestParam("name") String name, @PathVariable("love") String love) {
-        return "Hello world! " + hyc.getMyName() + " loves " + love;
+        return "Hello world! " + myNameService.getName() + " loves " + love;
     }
 
     @PostMapping("/bye")

@@ -9,6 +9,7 @@ public class AppConfig {
         List<Class<?>> all = new ArrayList<>();
         all.addAll(sc.scanPackage("mvc.controller"));
         all.addAll(sc.scanPackage("mvc.view"));
+        all.addAll(sc.scanPackage("spring.service"));
         return all.toArray(Class[]::new);
     }
 }

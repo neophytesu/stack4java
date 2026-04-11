@@ -1,5 +1,9 @@
 package spring.core;
 
+import lombok.NoArgsConstructor;
+import spring.aop.BeanEnhancer;
+import spring.aop.interfaces.MethodInterceptor;
+import spring.aop.interfaces.MethodInvocation;
 import spring.di.annotation.Autowired;
 import spring.ioc.bean.BeanDefinition;
 import spring.ioc.enums.BeanScope;
@@ -14,6 +18,12 @@ public class DefaultBeanFactory {
     ConcurrentHashMap<String, Object> singletonMap = new ConcurrentHashMap<>();
 
     private final BeanDefinitionRegistry beanDefinitionRegistry = new BeanDefinitionRegistry();
+
+    private final BeanEnhancer beanEnhancer = new BeanEnhancer();
+
+    public void addInterceptors(List<MethodInterceptor> interceptors) {
+        interceptors.forEach(beanEnhancer::addInterceptor);
+    }
 
     public void register(Class<?> type) {
         beanDefinitionRegistry.registerBeanDefinition(type);
@@ -31,10 +41,10 @@ public class DefaultBeanFactory {
             throw new IllegalStateException("不存在的bean" + beanName);
         }
         if (def.getScope() == BeanScope.SINGLETON) {
-            return singletonMap.computeIfAbsent(def.getBeanName(), _ -> createBean(def));
+            return singletonMap.computeIfAbsent(def.getBeanName(), _ -> beanEnhancer.enhance(createBean(def)));
         }
         if (def.getScope() == BeanScope.PROTOTYPE) {
-            return createBean(def);
+            return beanEnhancer.enhance(createBean(def));
         }
         throw new UnsupportedOperationException("不支持的作用域");
     }

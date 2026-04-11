@@ -1,6 +1,8 @@
 package spring.ioc.bean;
 
+import mvc.annotation.Controller;
 import spring.ioc.annotation.Bean;
+import spring.service.annotations.Service;
 
 import java.lang.annotation.Annotation;
 import java.net.JarURLConnection;
@@ -15,6 +17,9 @@ import java.util.jar.JarFile;
 import java.util.stream.Stream;
 
 public class ClassScanner {
+
+    private final List<Class<? extends Annotation>> beanTypeAnnotations = List.of(Bean.class, Controller.class, Service.class);
+
     List<Class<?>> scanPackage(String basePackage) throws Exception {
         String basePath = basePackage.replace(".", "/");
         ClassLoader cl = this.getClass().getClassLoader();
@@ -65,14 +70,6 @@ public class ClassScanner {
     }
 
     private boolean isBean(Class<?> clazz) {
-        if (clazz.isAnnotationPresent(Bean.class)) {
-            return true;
-        }
-        for (Annotation annotation : clazz.getAnnotations()) {
-            if (annotation.annotationType().isAnnotationPresent(Bean.class)) {
-                return true;
-            }
-        }
-        return false;
+        return beanTypeAnnotations.stream().anyMatch(clazz::isAnnotationPresent);
     }
 }

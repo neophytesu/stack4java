@@ -1,4 +1,4 @@
-package mvc.annotation;
+package spring.service.annotations;
 
 import spring.ioc.annotation.Bean;
 
@@ -7,6 +7,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Documented
-public @interface Controller {
+public @interface Service {
     String value() default "";
 }
