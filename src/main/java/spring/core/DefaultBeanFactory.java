@@ -1,7 +1,8 @@
-package ioc.bean;
+package spring.core;
 
-import ioc.annotation.Autowired;
-import ioc.enums.BeanScope;
+import spring.di.annotation.Autowired;
+import spring.ioc.bean.BeanDefinition;
+import spring.ioc.enums.BeanScope;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;

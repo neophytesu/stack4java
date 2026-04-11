@@ -1,4 +1,4 @@
-package ioc.enums;
+package spring.ioc.enums;
 
 import lombok.Getter;
 

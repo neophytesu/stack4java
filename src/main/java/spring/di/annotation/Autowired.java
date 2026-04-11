@@ -1,4 +1,4 @@
-package ioc.annotation;
+package spring.di.annotation;
 
 import java.lang.annotation.*;
 

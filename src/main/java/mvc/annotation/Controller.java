@@ -1,6 +1,6 @@
 package mvc.annotation;
 
-import ioc.annotation.Bean;
+import spring.ioc.annotation.Bean;
 
 import java.lang.annotation.*;
 

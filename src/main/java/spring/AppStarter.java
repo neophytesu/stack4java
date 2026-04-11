@@ -1,8 +1,8 @@
-package ioc;
+package spring;
 
 import http.HttpServer;
-import ioc.bean.AppConfig;
-import ioc.bean.DefaultBeanFactory;
+import spring.ioc.bean.AppConfig;
+import spring.core.DefaultBeanFactory;
 import mvc.DispatcherServlet;
 
 public class AppStarter {

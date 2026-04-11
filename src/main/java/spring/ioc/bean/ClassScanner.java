@@ -1,6 +1,6 @@
-package ioc.bean;
+package spring.ioc.bean;
 
-import ioc.annotation.Bean;
+import spring.ioc.annotation.Bean;
 
 import java.lang.annotation.Annotation;
 import java.net.JarURLConnection;

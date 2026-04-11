@@ -1,6 +1,6 @@
-package ioc.annotation;
+package spring.ioc.annotation;
 
-import ioc.enums.BeanScope;
+import spring.ioc.enums.BeanScope;
 
 import java.lang.annotation.*;
 

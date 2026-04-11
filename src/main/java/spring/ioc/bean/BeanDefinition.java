@@ -1,6 +1,6 @@
-package ioc.bean;
+package spring.ioc.bean;
 
-import ioc.enums.BeanScope;
+import spring.ioc.enums.BeanScope;
 import lombok.Builder;
 import lombok.Data;
 

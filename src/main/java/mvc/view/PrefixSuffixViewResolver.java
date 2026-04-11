@@ -1,6 +1,6 @@
 package mvc.view;
 
-import ioc.annotation.Bean;
+import spring.ioc.annotation.Bean;
 import lombok.Data;
 import mvc.view.interfaces.View;
 import mvc.view.interfaces.ViewResolver;

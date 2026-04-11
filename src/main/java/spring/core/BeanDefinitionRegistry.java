@@ -1,8 +1,9 @@
-package ioc.bean;
+package spring.core;
 
-import ioc.annotation.Primary;
-import ioc.annotation.Scope;
-import ioc.enums.BeanScope;
+import spring.di.annotation.Primary;
+import spring.ioc.annotation.Scope;
+import spring.ioc.bean.BeanDefinition;
+import spring.ioc.enums.BeanScope;
 
 import java.util.ArrayList;
 import java.util.List;

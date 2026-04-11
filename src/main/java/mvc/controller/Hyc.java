@@ -1,6 +1,6 @@
 package mvc.controller;
 
-import ioc.annotation.Bean;
+import spring.ioc.annotation.Bean;
 import lombok.Data;
 
 @Bean

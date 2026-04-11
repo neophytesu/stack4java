@@ -5,8 +5,8 @@ import http.HttpServletConfig;
 import http.base.HttpRequest;
 import http.base.HttpResponse;
 import http.servlet.HttpServlet;
-import ioc.bean.AppConfig;
-import ioc.bean.DefaultBeanFactory;
+import spring.ioc.bean.AppConfig;
+import spring.core.DefaultBeanFactory;
 import lombok.Getter;
 import mvc.annotation.Controller;
 import mvc.annotation.request.RequestMapping;
@@ -16,7 +16,6 @@ import mvc.common.route.RouteEntry;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
 import mvc.view.PrefixSuffixViewResolver;
-import mvc.view.interfaces.View;
 import mvc.view.interfaces.ViewResolver;
 
 import java.io.IOException;
