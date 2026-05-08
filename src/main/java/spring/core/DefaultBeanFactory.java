@@ -19,13 +19,17 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DefaultBeanFactory {
 
     private boolean closed = false;
 
-    ConcurrentHashMap<String, Object> singletonMap = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, Object> earlySingletonObjects = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, ObjectFactory> singletonFactories = new ConcurrentHashMap<>();
+    Set<String> singletonsCurrentlyInCreation = ConcurrentHashMap.newKeySet();
 
     private final BeanDefinitionRegistry beanDefinitionRegistry = new BeanDefinitionRegistry();
 
@@ -44,7 +48,7 @@ public class DefaultBeanFactory {
     }
 
     public void register(Class<?> type) {
-        if (closed){
+        if (closed) {
             throw new IllegalStateException("工厂已关闭！");
         }
         beanDefinitionRegistry.registerBeanDefinition(type);
@@ -61,12 +65,16 @@ public class DefaultBeanFactory {
     public void register(Object instance) {
         Class<?> clazz = instance.getClass();
         beanDefinitionRegistry.registerBeanDefinition(clazz);
-        singletonMap.put(clazz.getName(), instance);
+        singletonObjects.put(clazz.getName(), instance);
         registerDisposableBeanIfNecessary(clazz.getName(), instance);
     }
 
-    public Object getBean(String beanName) {
-        if (closed){
+    public Object getBean(String beanName) throws Exception {
+        return getBean(beanName, false);
+    }
+
+    public Object getBean(String beanName, boolean allowEarlyReference) throws Exception {
+        if (closed) {
             throw new IllegalStateException("工厂已关闭！");
         }
         BeanDefinition def = beanDefinitionRegistry.getBeanDefinition(beanName);
@@ -74,19 +82,41 @@ public class DefaultBeanFactory {
             throw new IllegalStateException("不存在的bean" + beanName);
         }
         if (def.getScope() == BeanScope.SINGLETON) {
-            if (!singletonMap.containsKey(beanName)) {
-                Object rawBean = doCreateBean(def);
-                registerDisposableBeanIfNecessary(beanName, rawBean);
-                Object exposedBean = beanEnhancer.enhance(rawBean);
-                singletonMap.put(def.getBeanName(), exposedBean);
-                return exposedBean;
+            if (singletonObjects.containsKey(beanName)) {
+                return singletonObjects.get(beanName);
             }
-            return singletonMap.get(beanName);
+            if (allowEarlyReference && earlySingletonObjects.containsKey(beanName)) {
+                return earlySingletonObjects.get(beanName);
+            }
+            return getSingleton(beanName, def);
         }
         if (def.getScope() == BeanScope.PROTOTYPE) {
-            return beanEnhancer.enhance(doCreateBean(def));
+            return beanEnhancer.enhance(doCreateBean(instantiateBean(def.getBeanClass()), def));
         }
         throw new UnsupportedOperationException("不支持的作用域");
+    }
+
+    private Object getSingleton(String beanName, BeanDefinition beanDefinition) throws Exception {
+        singletonsCurrentlyInCreation.add(beanName);
+        try {
+            return createSingletonBean(beanDefinition);
+        } finally {
+            singletonsCurrentlyInCreation.remove(beanName);
+        }
+    }
+
+    private Object createSingletonBean(BeanDefinition beanDefinition) throws Exception {
+        String beanName = beanDefinition.getBeanName();
+        singletonFactories.put(beanName, new ObjectFactory());
+        Object raw = instantiateBean(beanDefinition.getBeanClass());
+        earlySingletonObjects.put(beanName, raw);
+        raw = doCreateBean(raw, beanDefinition);
+        registerDisposableBeanIfNecessary(beanName, raw);
+        Object exposedBean = beanEnhancer.enhance(raw);
+        singletonObjects.put(beanName, exposedBean);
+        earlySingletonObjects.remove(beanName);
+        singletonFactories.remove(beanName);
+        return exposedBean;
     }
 
     private void registerDisposableBeanIfNecessary(String beanName, Object rawBean) {
@@ -116,11 +146,18 @@ public class DefaultBeanFactory {
             disposableAdapters.get(i).destroy();
         }
         disposableAdapters.clear();
-        singletonMap.clear();
+        singletonObjects.clear();
+        earlySingletonObjects.clear();
+        singletonFactories.clear();
+        singletonsCurrentlyInCreation.clear();
     }
 
-    public Object getBean(Class<?> type) {
-        if (closed){
+    public Object getBean(Class<?> type) throws Exception {
+        return getBean(type, false);
+    }
+
+    public Object getBean(Class<?> type, boolean allowEarlyReference) throws Exception {
+        if (closed) {
             throw new IllegalStateException("工厂已关闭！");
         }
         String[] names = beanDefinitionRegistry.getBeanNamesForType(type);
@@ -129,14 +166,14 @@ public class DefaultBeanFactory {
             throw new IllegalStateException("不存在类型为" + type + "的Bean");
         }
         if (len == 1) {
-            return getBean(names[0]);
+            return getBean(names[0], allowEarlyReference);
         }
         int primaryCnt = 0;
         Object bean = null;
         for (String name : names) {
             BeanDefinition beanDefinition = beanDefinitionRegistry.getBeanDefinition(name);
             if (beanDefinition.isPrimary()) {
-                bean = getBean(beanDefinition.getBeanName());
+                bean = getBean(beanDefinition.getBeanName(), allowEarlyReference);
                 if (primaryCnt++ > 0) {
                     throw new IllegalStateException(type.getName() + "类型存在多个primary类");
                 }
@@ -148,12 +185,10 @@ public class DefaultBeanFactory {
         throw new IllegalStateException(type.getName() + "存在多个bean定义");
     }
 
-    private Object doCreateBean(BeanDefinition beanDefinition) {
+    private Object doCreateBean(Object instance, BeanDefinition beanDefinition) {
         Class<?> clazz = beanDefinition.getBeanClass();
         String beanName = beanDefinition.getBeanName();
-        Object instance;
         try {
-            instance = instantiateBean(clazz);
             populateBean(instance, clazz);
             invokeAwareMethod(instance, beanName);
             instance = applyBeanPostProcessorsBeforeInitialization(instance, beanName);
@@ -191,7 +226,7 @@ public class DefaultBeanFactory {
         return instance;
     }
 
-    private void populateBean(Object instance, Class<?> clazz) throws IllegalAccessException {
+    private void populateBean(Object instance, Class<?> clazz) throws Exception {
         if (clazz != Object.class) {
             populateBean(instance, clazz.getSuperclass());
         } else {
@@ -200,7 +235,7 @@ public class DefaultBeanFactory {
         for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(Autowired.class)) {
                 field.setAccessible(true);
-                field.set(instance, getBean(field.getType()));
+                field.set(instance, getBean(field.getType(), true));
             }
         }
     }

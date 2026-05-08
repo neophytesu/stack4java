@@ -99,7 +99,7 @@ public class DispatcherServlet implements HttpServlet {
     }
 
     @Override
-    public void init(HttpServletConfig config) {
+    public void init(HttpServletConfig config) throws Exception {
         HttpServlet.super.init(config);
         this.servletConfig = config;
         viewResolver = (ViewResolver) beanFactory.getBean(PrefixSuffixViewResolver.class);

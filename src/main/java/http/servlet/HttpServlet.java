@@ -10,7 +10,7 @@ public interface HttpServlet {
 
     void service(HttpRequest request, HttpResponse response) throws IOException;
 
-    default void init(HttpServletConfig config) {
+    default void init(HttpServletConfig config) throws Exception {
     }
 
     default void destroy() throws Exception {
