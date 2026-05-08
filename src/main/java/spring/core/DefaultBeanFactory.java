@@ -7,6 +7,9 @@ import spring.ioc.bean.BeanDefinition;
 import spring.ioc.bean.lifecycle.BeanPostProcessor;
 import spring.ioc.bean.lifecycle.aware.BeanFactoryAware;
 import spring.ioc.bean.lifecycle.aware.BeanNameAware;
+import spring.ioc.bean.lifecycle.destroy.DisposableAdapter;
+import spring.ioc.bean.lifecycle.destroy.DisposableBean;
+import spring.ioc.bean.lifecycle.destroy.PreDestroy;
 import spring.ioc.bean.lifecycle.init.InitializingBean;
 import spring.ioc.bean.lifecycle.init.PostConstruct;
 import spring.ioc.enums.BeanScope;
@@ -19,6 +22,9 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DefaultBeanFactory {
+
+    private boolean closed = false;
+
     ConcurrentHashMap<String, Object> singletonMap = new ConcurrentHashMap<>();
 
     private final BeanDefinitionRegistry beanDefinitionRegistry = new BeanDefinitionRegistry();
@@ -26,6 +32,8 @@ public class DefaultBeanFactory {
     private final BeanEnhancer beanEnhancer = new BeanEnhancer();
 
     List<BeanPostProcessor> beanPostProcessors = new ArrayList<>();
+
+    List<DisposableAdapter> disposableAdapters = new ArrayList<>();
 
     public void addInterceptors(List<MethodInterceptor> interceptors) {
         interceptors.forEach(beanEnhancer::addInterceptor);
@@ -36,16 +44,31 @@ public class DefaultBeanFactory {
     }
 
     public void register(Class<?> type) {
+        if (closed){
+            throw new IllegalStateException("工厂已关闭！");
+        }
         beanDefinitionRegistry.registerBeanDefinition(type);
+    }
+
+    public void close() throws Exception {
+        if (closed) {
+            return;
+        }
+        destroySingletons();
+        closed = true;
     }
 
     public void register(Object instance) {
         Class<?> clazz = instance.getClass();
         beanDefinitionRegistry.registerBeanDefinition(clazz);
         singletonMap.put(clazz.getName(), instance);
+        registerDisposableBeanIfNecessary(clazz.getName(), instance);
     }
 
     public Object getBean(String beanName) {
+        if (closed){
+            throw new IllegalStateException("工厂已关闭！");
+        }
         BeanDefinition def = beanDefinitionRegistry.getBeanDefinition(beanName);
         if (def == null) {
             throw new IllegalStateException("不存在的bean" + beanName);
@@ -54,8 +77,11 @@ public class DefaultBeanFactory {
             if (!singletonMap.containsKey(beanName)) {
                 Object rawBean = doCreateBean(def);
                 registerDisposableBeanIfNecessary(beanName, rawBean);
-                singletonMap.put(def.getBeanName(), beanEnhancer.enhance(rawBean));
+                Object exposedBean = beanEnhancer.enhance(rawBean);
+                singletonMap.put(def.getBeanName(), exposedBean);
+                return exposedBean;
             }
+            return singletonMap.get(beanName);
         }
         if (def.getScope() == BeanScope.PROTOTYPE) {
             return beanEnhancer.enhance(doCreateBean(def));
@@ -64,10 +90,39 @@ public class DefaultBeanFactory {
     }
 
     private void registerDisposableBeanIfNecessary(String beanName, Object rawBean) {
+        boolean disposableBean = rawBean instanceof DisposableBean;
+        List<Method> preDestroyMethod = new ArrayList<>();
+        getPreDestroyMethod(rawBean.getClass(), preDestroyMethod);
+        if (!preDestroyMethod.isEmpty() || disposableBean) {
+            DisposableAdapter disposableAdapter = new DisposableAdapter(beanName, rawBean, preDestroyMethod, disposableBean);
+            disposableAdapters.add(disposableAdapter);
+        }
+    }
 
+    private void getPreDestroyMethod(Class<?> rawBean, List<Method> preDestroyMethod) {
+        if (rawBean == Object.class) {
+            return;
+        }
+        for (Method method : rawBean.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(PreDestroy.class)) {
+                preDestroyMethod.add(method);
+            }
+        }
+        getPreDestroyMethod(rawBean.getSuperclass(), preDestroyMethod);
+    }
+
+    private void destroySingletons() throws Exception {
+        for (int i = disposableAdapters.size() - 1; i >= 0; i--) {
+            disposableAdapters.get(i).destroy();
+        }
+        disposableAdapters.clear();
+        singletonMap.clear();
     }
 
     public Object getBean(Class<?> type) {
+        if (closed){
+            throw new IllegalStateException("工厂已关闭！");
+        }
         String[] names = beanDefinitionRegistry.getBeanNamesForType(type);
         int len = names.length;
         if (len == 0) {

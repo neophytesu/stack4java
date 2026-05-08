@@ -175,7 +175,8 @@ public class DispatcherServlet implements HttpServlet {
     }
 
     @Override
-    public void destroy() {
+    public void destroy() throws Exception {
         HttpServlet.super.destroy();
+        beanFactory.close();
     }
 }

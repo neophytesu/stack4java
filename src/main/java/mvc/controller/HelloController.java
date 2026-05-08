@@ -10,6 +10,8 @@ import mvc.annotation.request.GetMapping;
 import mvc.annotation.param.RequestParam;
 import mvc.annotation.request.PostMapping;
 import mvc.view.ModelAndView;
+import spring.ioc.bean.lifecycle.destroy.PreDestroy;
+import spring.ioc.bean.lifecycle.init.PostConstruct;
 import spring.service.interfaces.MyNameService;
 
 import java.util.HashMap;
@@ -46,5 +48,15 @@ public class HelloController {
     @Data
     public static final class Bye {
         String name;
+    }
+
+    @PostConstruct
+    public void init(){
+        System.out.println("HelloController init");
+    }
+
+    @PreDestroy
+    public void destroy(){
+        System.out.println("HelloController destroy");
     }
 }

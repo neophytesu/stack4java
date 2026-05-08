@@ -30,6 +30,13 @@ public class AppStarter {
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                factory.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }));
         DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
         HttpServer server = new HttpServer(8080);
         server.addServlet("/api/*", dispatcherServlet, "dispatcher");

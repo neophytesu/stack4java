@@ -13,6 +13,6 @@ public interface HttpServlet {
     default void init(HttpServletConfig config) {
     }
 
-    default void destroy() {
+    default void destroy() throws Exception {
     }
 }
