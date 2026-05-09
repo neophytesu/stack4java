@@ -28,7 +28,7 @@ public class DefaultBeanFactory {
 
     ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
     ConcurrentHashMap<String, Object> earlySingletonObjects = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, ObjectFactory> singletonFactories = new ConcurrentHashMap<>();
+    ConcurrentHashMap<String, ObjectFactory<Object>> singletonFactories = new ConcurrentHashMap<>();
     Set<String> singletonsCurrentlyInCreation = ConcurrentHashMap.newKeySet();
 
     private final BeanDefinitionRegistry beanDefinitionRegistry = new BeanDefinitionRegistry();
@@ -85,8 +85,16 @@ public class DefaultBeanFactory {
             if (singletonObjects.containsKey(beanName)) {
                 return singletonObjects.get(beanName);
             }
-            if (allowEarlyReference && earlySingletonObjects.containsKey(beanName)) {
-                return earlySingletonObjects.get(beanName);
+            if (allowEarlyReference) {
+                if (earlySingletonObjects.containsKey(beanName)) {
+                    return earlySingletonObjects.get(beanName);
+                }
+                if (singletonFactories.containsKey(beanName)) {
+                    Object bean = singletonFactories.get(beanName).getObject();
+                    singletonFactories.remove(beanName);
+                    earlySingletonObjects.put(beanName, bean);
+                    return bean;
+                }
             }
             return getSingleton(beanName, def);
         }
@@ -107,9 +115,9 @@ public class DefaultBeanFactory {
 
     private Object createSingletonBean(BeanDefinition beanDefinition) throws Exception {
         String beanName = beanDefinition.getBeanName();
-        singletonFactories.put(beanName, new ObjectFactory());
         Object raw = instantiateBean(beanDefinition.getBeanClass());
-        earlySingletonObjects.put(beanName, raw);
+        Object finalRaw = raw;
+        singletonFactories.put(beanName, () -> getEarlyBeanReference(finalRaw));
         raw = doCreateBean(raw, beanDefinition);
         registerDisposableBeanIfNecessary(beanName, raw);
         Object exposedBean = beanEnhancer.enhance(raw);
@@ -117,6 +125,10 @@ public class DefaultBeanFactory {
         earlySingletonObjects.remove(beanName);
         singletonFactories.remove(beanName);
         return exposedBean;
+    }
+
+    private Object getEarlyBeanReference(Object raw) {
+        return raw;
     }
 
     private void registerDisposableBeanIfNecessary(String beanName, Object rawBean) {

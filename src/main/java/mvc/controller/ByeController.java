@@ -18,28 +18,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Controller("/api")
-public class HelloController {
+public class ByeController {
 
     @Autowired
     MyNameService myNameService;
 
     @Autowired
-    ByeController byeController;
+    HelloController helloController;
 
-    @GetMapping("/hello/{love}")
+    @PostMapping("/bye")
     @ResponseBody
-    public String hello(@RequestParam("name") String name, @PathVariable("love") String love) {
-        return "Hello world! " + myNameService.getName() + " loves " + love;
-    }
-
-    @GetMapping("/temp/hello")
-    public ModelAndView hello() {
-        ModelAndView mav = new ModelAndView();
-        Map<String, Object> data = new HashMap<>();
-        data.put("name", "yuruyucheng");
-        mav.setModel(data);
-        mav.setViewName("hello");
-        return mav;
+    public String bye(@RequestBody Bye bye) {
+        return "GoodBye! " + bye.name;
     }
 
     @Data
@@ -49,11 +39,11 @@ public class HelloController {
 
     @PostConstruct
     public void init() {
-        System.out.println("HelloController init");
+        System.out.println("ByeController init");
     }
 
     @PreDestroy
     public void destroy() {
-        System.out.println("HelloController destroy");
+        System.out.println("ByeController destroy");
     }
 }

@@ -109,7 +109,8 @@ public class DispatcherServlet implements HttpServlet {
             }
         } catch (Exception e) {
             System.out.println("Controller Register Failed!");
-            System.out.println(e.getCause().getMessage());
+            Throwable c = e.getCause();
+            System.out.println(c != null ? c.getMessage() : e.getMessage());
         }
     }
 

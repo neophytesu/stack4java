@@ -1,4 +1,6 @@
 package spring.core;
 
-public class ObjectFactory {
+@FunctionalInterface
+public interface ObjectFactory<T> {
+    T getObject() throws Exception;
 }
