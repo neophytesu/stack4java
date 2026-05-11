@@ -1,4 +1,4 @@
-package spring.aop.interfaces;
+package spring.aop.interceptor;
 
 import java.lang.reflect.Method;
 

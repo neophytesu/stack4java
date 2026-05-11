@@ -1,7 +1,7 @@
 package spring.aop;
 
-import spring.aop.interfaces.MethodInterceptor;
-import spring.aop.interfaces.MethodInvocation;
+import spring.aop.interceptor.MethodInterceptor;
+import spring.aop.interceptor.MethodInvocation;
 
 import java.lang.reflect.Method;
 import java.util.List;

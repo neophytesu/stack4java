@@ -1,7 +1,9 @@
 package spring;
 
 import http.HttpServer;
+import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
+import spring.aop.pointcut.LogMethodPointcut;
 import spring.ioc.bean.AppConfig;
 import spring.core.DefaultBeanFactory;
 import mvc.DispatcherServlet;
@@ -26,7 +28,7 @@ public class AppStarter {
                 return bean;
             }
         });
-        factory.addInterceptors(List.of(new LogMethodInterceptor()));
+        factory.addAdvisors(List.of(new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor())));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }

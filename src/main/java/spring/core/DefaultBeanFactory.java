@@ -1,7 +1,8 @@
 package spring.core;
 
 import spring.aop.BeanEnhancer;
-import spring.aop.interfaces.MethodInterceptor;
+import spring.aop.advisor.Advisor;
+import spring.aop.interceptor.MethodInterceptor;
 import spring.di.annotation.Autowired;
 import spring.ioc.bean.BeanDefinition;
 import spring.ioc.bean.lifecycle.BeanPostProcessor;
@@ -41,6 +42,10 @@ public class DefaultBeanFactory {
 
     public void addInterceptors(List<MethodInterceptor> interceptors) {
         interceptors.forEach(beanEnhancer::addInterceptor);
+    }
+
+    public void addAdvisors(List<Advisor> advisors) {
+        advisors.forEach(beanEnhancer::addAdvisor);
     }
 
     public void addBeanPostProcessor(BeanPostProcessor beanPostProcessor) {

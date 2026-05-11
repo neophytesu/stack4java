@@ -1,8 +1,5 @@
 package spring.aop.interceptor;
 
-import spring.aop.interfaces.MethodInterceptor;
-import spring.aop.interfaces.MethodInvocation;
-
 import java.lang.reflect.InvocationTargetException;
 
 public class LogMethodInterceptor implements MethodInterceptor {
