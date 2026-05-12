@@ -1,40 +1,26 @@
 package mvc.controller;
 
-import spring.di.annotation.Autowired;
-import lombok.Data;
-import mvc.annotation.Controller;
-import mvc.annotation.param.PathVariable;
-import mvc.annotation.param.RequestBody;
 import mvc.annotation.param.ResponseBody;
 import mvc.annotation.request.GetMapping;
-import mvc.annotation.param.RequestParam;
-import mvc.annotation.request.PostMapping;
-import mvc.view.ModelAndView;
+import spring.di.annotation.Autowired;
+import mvc.annotation.Controller;
 import spring.ioc.bean.lifecycle.destroy.PreDestroy;
 import spring.ioc.bean.lifecycle.init.PostConstruct;
-import spring.service.interfaces.MyNameService;
-
-import java.util.HashMap;
-import java.util.Map;
+import spring.service.CodeNameServiceImpl;
 
 @Controller("/api")
 public class ByeController {
 
     @Autowired
-    MyNameService myNameService;
+    CodeNameServiceImpl codeNameService;
 
     @Autowired
     HelloController helloController;
 
-    @PostMapping("/bye")
+    @GetMapping("/bye")
     @ResponseBody
-    public String bye(@RequestBody Bye bye) {
-        return "GoodBye! " + bye.name;
-    }
-
-    @Data
-    public static final class Bye {
-        String name;
+    public String bye() {
+        return "GoodBye! " + codeNameService.getCodeName();
     }
 
     @PostConstruct
