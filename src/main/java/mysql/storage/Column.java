@@ -1,4 +1,9 @@
 package mysql.storage;
 
-public record Column(String columnName, int index, ColumnType columnType) {
+import lombok.Data;
+
+@Data
+public class Column {
+    private String columnName;
+    private ColumnType columnType;
 }

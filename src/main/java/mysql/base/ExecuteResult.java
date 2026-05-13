@@ -20,4 +20,12 @@ public record ExecuteResult(Long code, String description) {
     public static ExecuteResult Schema_NOT_EXIST() {
         return new ExecuteResult(5L, "模式不存在");
     }
+
+    public static ExecuteResult Column_EXIST() {
+        return new ExecuteResult(6L, "列已存在");
+    }
+
+    public static ExecuteResult Column_NOT_EXIST() {
+        return new ExecuteResult(7L, "列不存在");
+    }
 }
