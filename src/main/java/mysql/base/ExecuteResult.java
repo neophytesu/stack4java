@@ -30,8 +30,8 @@ public record ExecuteResult(Long code, String description) {
         return new ExecuteResult(6L, "列已存在");
     }
 
-    public static ExecuteResult Column_NOT_EXIST() {
-        return new ExecuteResult(7L, "列不存在");
+    public static ExecuteResult Column_NOT_EXIST(String columnName) {
+        return new ExecuteResult(7L, "列" + columnName + "不存在");
     }
 
     public static ExecuteResult COLUMN_COUNT_MISMATCH() {
@@ -42,4 +42,15 @@ public record ExecuteResult(Long code, String description) {
         return new ExecuteResult(9L, "插入值类型与列" + columnName + "不符");
     }
 
+    public static ExecuteResult UPDATE_SUCCESS(Integer num) {
+        return new ExecuteResult(10L, "更新成功，更新" + num + "行");
+    }
+
+    public static ExecuteResult DELETE_SUCCESS(Integer num) {
+        return new ExecuteResult(11L, "删除成功，删除" + num + "行");
+    }
+
+    public static ExecuteResult INSERT_SUCCESS(Integer num) {
+        return new ExecuteResult(12L, "插入成功，插入" + num + "行");
+    }
 }

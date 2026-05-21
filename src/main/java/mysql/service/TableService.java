@@ -2,6 +2,7 @@ package mysql.service;
 
 import lombok.Data;
 import mysql.base.ExecuteResult;
+import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
 import mysql.storage.Row;
@@ -36,7 +37,7 @@ public class TableService {
         List<Column> columns = table.getColumns();
         String columnName = column.getColumnName();
         if (columns.stream().noneMatch(c -> c.getColumnName().equals(columnName))) {
-            return ExecuteResult.Column_NOT_EXIST();
+            return ExecuteResult.Column_NOT_EXIST(column.getColumnName());
         }
         columns.removeIf(c -> c.getColumnName().equals(columnName));
         return ExecuteResult.SUCCESS();
@@ -57,7 +58,7 @@ public class TableService {
         Row row = new Row();
         row.setValues(MysqlUtil.deepCopy(values, columnTypes).toArray());
         table.getRows().add(row);
-        return ExecuteResult.SUCCESS();
+        return ExecuteResult.INSERT_SUCCESS(1);
     }
 
     public List<Row> selectAll() {
@@ -80,9 +81,35 @@ public class TableService {
         return Collections.unmodifiableList(result);
     }
 
+    public List<Row> selectWhere(String columnName, Object value) {
+        int idx = -1;
+        List<Column> columns = table.getColumns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (columnName.equals(columns.get(i).getColumnName())) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx == -1) {
+            throw new MysqlExecuteException(102L, "列" + columnName + "不存在");
+        }
+        List<Row> res = new ArrayList<>();
+        ColumnType columnType = columns.get(idx).getColumnType();
+        if (columnType.refuse(value)) {
+            throw new MysqlExecuteException(103L, "列" + columnName + "的类型和插入值" + value + "不符");
+        }
+        for (Row row : table.getRows()) {
+            if (MysqlUtil.compareRowValue(row.getValues()[idx], value, columnType)) {
+                res.add(row);
+            }
+        }
+        return Collections.unmodifiableList(res);
+    }
+
     public ExecuteResult deleteAll() {
+        int num = table.getRows().size();
         table.getRows().clear();
-        return ExecuteResult.SUCCESS();
+        return ExecuteResult.DELETE_SUCCESS(num);
     }
 
     public ExecuteResult deleteByPrimaryKey(Object primaryValue) {
@@ -92,10 +119,10 @@ public class TableService {
         for (int i = 0; i < table.getRows().size(); i++) {
             if (MysqlUtil.compareRowValue(primaryValue, rows.get(i).getValues()[primaryKeyIdx], columnType)) {
                 rows.remove(i);
-                break;
+                return ExecuteResult.DELETE_SUCCESS(1);
             }
         }
-        return ExecuteResult.SUCCESS();
+        return ExecuteResult.DELETE_SUCCESS(0);
     }
 
     public ExecuteResult updateAll(Integer columnIdx, Object newValue) {
@@ -106,6 +133,25 @@ public class TableService {
         for (Row row : table.getRows()) {
             row.getValues()[columnIdx] = newValue;
         }
-        return ExecuteResult.SUCCESS();
+        return ExecuteResult.UPDATE_SUCCESS(table.getRows().size());
+    }
+
+    public ExecuteResult updateByPrimaryKey(Object pkValue, Object newValue) {
+        int pkIdx = table.getPrimaryIdx();
+        Column pkColumn = table.getColumns().get(pkIdx);
+        ColumnType pkColumnType = pkColumn.getColumnType();
+        if (pkColumnType.refuse(pkValue)) {
+            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和插入值" + pkValue + "不符");
+        }
+        if (pkColumnType.refuse(newValue)) {
+            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和插入值" + newValue + "不符");
+        }
+        for (Row row : table.getRows()) {
+            if (MysqlUtil.compareRowValue(pkColumn, row.getValues()[pkIdx], pkColumnType)) {
+                row.getValues()[pkIdx] = newValue;
+                return ExecuteResult.UPDATE_SUCCESS(1);
+            }
+        }
+        return ExecuteResult.UPDATE_SUCCESS(0);
     }
 }
