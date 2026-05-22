@@ -3,6 +3,7 @@ package mysql.utils;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
+import mysql.storage.Row;
 
 import java.util.*;
 
@@ -14,7 +15,7 @@ public class MysqlUtil {
         return columnType.equalsValue(a, b);
     }
 
-    private static Object deepCopyValue(Object value, ColumnType columnType) {
+    public static Object deepCopyValue(Object value, ColumnType columnType) {
         return columnType.copyValue(value);
     }
 
@@ -40,9 +41,18 @@ public class MysqlUtil {
         }
         List<Object> copy = new ArrayList<>();
         for (int i = 0; i < original.size(); i++) {
-            copy.set(i, deepCopyValue(original.get(i), columnType.get(i)));
+            copy.add(deepCopyValue(original.get(i), columnType.get(i)));
         }
         return copy;
+    }
+
+    public static Row copyRow(Row row) {
+        int len = row.getValues().length;
+        Object[] data = new Object[len];
+        System.arraycopy(row.getValues(), 0, data, 0, len);
+        Row newRow = new Row();
+        newRow.setValues(data);
+        return newRow;
     }
 
 }

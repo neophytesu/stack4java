@@ -100,7 +100,7 @@ public class TableService {
         }
         for (Row row : table.getRows()) {
             if (MysqlUtil.compareRowValue(row.getValues()[idx], value, columnType)) {
-                res.add(row);
+                res.add(MysqlUtil.copyRow(row));
             }
         }
         return Collections.unmodifiableList(res);
@@ -126,29 +126,37 @@ public class TableService {
     }
 
     public ExecuteResult updateAll(Integer columnIdx, Object newValue) {
+        if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
+            throw new MysqlExecuteException(104L, "列索引越界");
+        }
         Column column = table.getColumns().get(columnIdx);
         if (column.getColumnType().refuse(newValue)) {
             return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
         }
         for (Row row : table.getRows()) {
-            row.getValues()[columnIdx] = newValue;
+            row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, column.getColumnType());
         }
         return ExecuteResult.UPDATE_SUCCESS(table.getRows().size());
     }
 
-    public ExecuteResult updateByPrimaryKey(Object pkValue, Object newValue) {
+    public ExecuteResult updateByPrimaryKey(Object pkValue, int columnIdx, Object newValue) {
+        if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
+            throw new MysqlExecuteException(104L, "列索引越界");
+        }
         int pkIdx = table.getPrimaryIdx();
         Column pkColumn = table.getColumns().get(pkIdx);
         ColumnType pkColumnType = pkColumn.getColumnType();
+        Column column = table.getColumns().get(columnIdx);
+        ColumnType columnType = column.getColumnType();
         if (pkColumnType.refuse(pkValue)) {
-            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和插入值" + pkValue + "不符");
+            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和检索值" + pkValue + "不符");
         }
-        if (pkColumnType.refuse(newValue)) {
-            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和插入值" + newValue + "不符");
+        if (columnType.refuse(newValue)) {
+            throw new MysqlExecuteException(103L, "列" + column.getColumnName() + "的类型和插入值" + newValue + "不符");
         }
         for (Row row : table.getRows()) {
-            if (MysqlUtil.compareRowValue(pkColumn, row.getValues()[pkIdx], pkColumnType)) {
-                row.getValues()[pkIdx] = newValue;
+            if (MysqlUtil.compareRowValue(pkValue, row.getValues()[pkIdx], pkColumnType)) {
+                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, columnType);
                 return ExecuteResult.UPDATE_SUCCESS(1);
             }
         }
