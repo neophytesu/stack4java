@@ -53,4 +53,12 @@ public record ExecuteResult(Long code, String description) {
     public static ExecuteResult INSERT_SUCCESS(Integer num) {
         return new ExecuteResult(12L, "插入成功，插入" + num + "行");
     }
+
+    public static ExecuteResult Catalog_NOT_EXIST() {
+        return new ExecuteResult(13L, "目录不存在");
+    }
+
+    public static ExecuteResult Schema_NOT_USED() {
+        return new ExecuteResult(14L, "未选择模式");
+    }
 }

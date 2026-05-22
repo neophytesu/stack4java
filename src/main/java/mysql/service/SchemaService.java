@@ -11,9 +11,8 @@ import java.util.Map;
 public class SchemaService {
     private Schema schema;
 
-    public ExecuteResult useSchema(Schema schema) {
+    public void useSchema(Schema schema) {
         this.schema = schema;
-        return ExecuteResult.SUCCESS();
     }
 
     public ExecuteResult createTable(Table table) {

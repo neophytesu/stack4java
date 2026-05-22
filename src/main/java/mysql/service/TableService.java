@@ -18,9 +18,8 @@ public class TableService {
 
     private Table table;
 
-    public ExecuteResult useTable(Table table) {
+    public void useTable(Table table) {
         this.table = table;
-        return ExecuteResult.SUCCESS();
     }
 
     public ExecuteResult addColumn(Column column) {
