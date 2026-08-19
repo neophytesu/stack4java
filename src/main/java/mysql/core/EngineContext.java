@@ -1,6 +1,7 @@
-package mysql.base;
+package mysql.core;
 
 import lombok.Data;
+import mysql.base.ExecuteResult;
 import mysql.service.CatalogService;
 import mysql.service.SchemaService;
 import mysql.service.TableService;

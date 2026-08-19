@@ -10,6 +10,10 @@ public record ExecuteResult(Long code, String description) {
         return new ExecuteResult(1L, "执行成功");
     }
 
+    public boolean isSuccess() {
+        return this.code.intValue() == 1;
+    }
+
     public static ExecuteResult TABLE_EXIST() {
         return new ExecuteResult(2L, "表已存在");
     }
