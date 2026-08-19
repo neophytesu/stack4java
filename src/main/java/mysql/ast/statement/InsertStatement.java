@@ -1,4 +1,4 @@
-package mysql.ast;
+package mysql.ast.statement;
 
 import java.util.List;
 

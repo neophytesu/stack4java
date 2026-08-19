@@ -1,9 +1,6 @@
 package mysql;
 
-import mysql.ast.CreateSchemaStatement;
-import mysql.ast.CreateTableStatement;
-import mysql.ast.InsertStatement;
-import mysql.ast.SelectWhereStatement;
+import mysql.ast.statement.*;
 import mysql.core.EngineContext;
 import mysql.core.Executor;
 import mysql.storage.Catalog;
@@ -31,5 +28,10 @@ public class MysqlTest {
         executor.execute(new CreateTableStatement("mydb", table));
         executor.execute(new InsertStatement("mydb", "user", List.of(1, "Alice", 20)));
         System.out.println(executor.execute(new SelectWhereStatement("mydb", "user", "name", "Alice")));
+        System.out.println(executor.execute(new SelectAllStatement("mydb", "user")));
+        executor.execute(new UpdateByPrimaryKeyStatement("mydb", "user", 1, "age", 21));
+        System.out.println(executor.execute(new SelectColumnsStatement("mydb", "user", List.of("name", "age"))));
+        executor.execute(new DeleteByPrimaryKeyStatement("mydb", "user", 1));
+        executor.execute(new DeleteAllStatement("mydb", "user"));
     }
 }

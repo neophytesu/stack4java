@@ -1,4 +1,4 @@
-package mysql.ast;
+package mysql.ast.statement;
 
 public record UseSchemaStatement(String schemaName) implements Statement{
 }

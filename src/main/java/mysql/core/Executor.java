@@ -1,8 +1,11 @@
 package mysql.core;
 
-import mysql.ast.*;
+import mysql.ast.statement.*;
 import mysql.base.ExecuteResult;
 import mysql.storage.Schema;
+import mysql.utils.MysqlUtil;
+
+import java.util.List;
 
 public class Executor {
     private final EngineContext context;
@@ -35,6 +38,32 @@ public class Executor {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
                 yield context.getTableService().selectWhere(s.columnName(), s.value());
+            }
+            case SelectAllStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().selectAll();
+            }
+            case SelectColumnsStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().selectColumns(s.columnNames());
+            }
+            case UpdateByPrimaryKeyStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                int columnIdx = MysqlUtil.columnName2Index(List.of(s.columnName()), context.getCurrentTable().getColumns()).getFirst();
+                yield context.getTableService().updateByPrimaryKey(s.pkValue(), columnIdx, s.newValue());
+            }
+            case DeleteAllStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().deleteAll();
+            }
+            case DeleteByPrimaryKeyStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().deleteByPrimaryKey(s.pkValue());
             }
         };
     }
