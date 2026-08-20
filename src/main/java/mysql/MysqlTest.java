@@ -19,19 +19,19 @@ public class MysqlTest {
         catalog.setSchemas(new HashMap<>());
         EngineContext context = new EngineContext(catalog);
         Executor executor = new Executor(context);
-        executor.execute(new CreateSchemaStatement("mydb"));
+        executor.executeUpdate(new CreateSchemaStatement("mydb"));
         Table table = new Table();
         table.setTableName("user");
         table.setPrimaryIdx(0);
         table.setColumns(List.of(new Column("id", ColumnType.INTEGER), new Column("name", ColumnType.VARCHAR), new Column("age", ColumnType.INTEGER)));
         table.setRows(new ArrayList<>());
-        executor.execute(new CreateTableStatement("mydb", table));
-        executor.execute(new InsertStatement("mydb", "user", List.of(1, "Alice", 20)));
-        System.out.println(executor.execute(new SelectWhereStatement("mydb", "user", "name", "Alice")));
-        System.out.println(executor.execute(new SelectAllStatement("mydb", "user")));
-        executor.execute(new UpdateByPrimaryKeyStatement("mydb", "user", 1, "age", 21));
-        System.out.println(executor.execute(new SelectColumnsStatement("mydb", "user", List.of("name", "age"))));
-        executor.execute(new DeleteByPrimaryKeyStatement("mydb", "user", 1));
-        executor.execute(new DeleteAllStatement("mydb", "user"));
+        executor.executeUpdate(new CreateTableStatement("mydb", table));
+        executor.executeUpdate(new InsertStatement("mydb", "user", List.of(1, "Alice", 20)));
+        System.out.println(executor.executeQuery(new SelectWhereStatement("mydb", "user", "name", "Alice")));
+        System.out.println(executor.executeQuery(new SelectAllStatement("mydb", "user")));
+        executor.executeUpdate(new UpdateByPrimaryKeyStatement("mydb", "user", 1, "age", 21));
+        System.out.println(executor.executeQuery(new SelectColumnsStatement("mydb", "user", List.of("name", "age"))));
+        executor.executeUpdate(new DeleteByPrimaryKeyStatement("mydb", "user", 1));
+        executor.executeUpdate(new DeleteAllStatement("mydb", "user"));
     }
 }

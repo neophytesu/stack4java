@@ -2,6 +2,8 @@ package mysql.core;
 
 import mysql.ast.statement.*;
 import mysql.base.ExecuteResult;
+import mysql.base.MysqlExecuteException;
+import mysql.storage.Row;
 import mysql.storage.Schema;
 import mysql.utils.MysqlUtil;
 
@@ -14,8 +16,23 @@ public class Executor {
         this.context = context;
     }
 
-
-    public Object execute(Statement stmt) {
+    public List<Row> executeQuery(QueryStatement stmt) {
+        return switch (stmt) {
+            case SelectWhereStatement s -> {
+                requireSchemaAndTable(s.schemaName(), s.tableName());
+                yield context.getTableService().selectWhere(s.columnName(), s.value());
+            }
+            case SelectAllStatement s -> {
+                requireSchemaAndTable(s.schemaName(), s.tableName());
+                yield context.getTableService().selectAll();
+            }
+            case SelectColumnsStatement s -> {
+                requireSchemaAndTable(s.schemaName(), s.tableName());
+                yield context.getTableService().selectColumns(s.columnNames());
+            }
+        };
+    }
+    public ExecuteResult executeUpdate(UpdateStatement stmt) {
         return switch (stmt) {
             case UseSchemaStatement s -> context.useSchema(s.schemaName());
             case UseTableStatement s -> context.useTable(s.tableName());
@@ -32,22 +49,7 @@ public class Executor {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().insert(s.value());
-            }
-            case SelectWhereStatement s -> {
-                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
-                if (!r.isSuccess()) yield r;
-                yield context.getTableService().selectWhere(s.columnName(), s.value());
-            }
-            case SelectAllStatement s -> {
-                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
-                if (!r.isSuccess()) yield r;
-                yield context.getTableService().selectAll();
-            }
-            case SelectColumnsStatement s -> {
-                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
-                if (!r.isSuccess()) yield r;
-                yield context.getTableService().selectColumns(s.columnNames());
+                yield context.getTableService().insert(s.values());
             }
             case UpdateByPrimaryKeyStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
@@ -73,4 +75,12 @@ public class Executor {
         if (!r.isSuccess()) return r;
         return context.useTable(tableName);
     }
+    
+    private void requireSchemaAndTable(String schemaName, String tableName) {
+        ExecuteResult r = ensureSchemaAndTable(schemaName, tableName);
+        if (!r.isSuccess()){
+            throw new MysqlExecuteException(r.code(),r.description());
+        }
+    }
+
 }

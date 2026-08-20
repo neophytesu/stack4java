@@ -45,7 +45,7 @@ public class EngineContext {
 
     public ExecuteResult useTable(String tableName) {
         if (currentSchema == null) {
-            return ExecuteResult.Schema_NOT_EXIST();
+            return ExecuteResult.Schema_NOT_USED();
         }
         Table table = currentSchema.getTables().get(tableName);
         if (table == null) {

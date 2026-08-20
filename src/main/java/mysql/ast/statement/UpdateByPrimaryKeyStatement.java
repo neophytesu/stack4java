@@ -6,5 +6,5 @@ public record UpdateByPrimaryKeyStatement(
         Object pkValue,
         String columnName,
         Object newValue
-) implements Statement {
+) implements UpdateStatement {
 }
