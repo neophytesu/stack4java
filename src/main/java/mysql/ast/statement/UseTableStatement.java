@@ -1,4 +1,4 @@
 package mysql.ast.statement;
 
-public record UseTableStatement(String tableName) implements  UpdateStatement {
+public record UseTableStatement(String tableName) implements  DefineStatement {
 }

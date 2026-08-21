@@ -32,8 +32,8 @@ public class Executor {
             }
         };
     }
-    public ExecuteResult executeUpdate(UpdateStatement stmt) {
-        return switch (stmt) {
+    public ExecuteResult executeDefine(DefineStatement stmt) {
+        return switch (stmt){
             case UseSchemaStatement s -> context.useSchema(s.schemaName());
             case UseTableStatement s -> context.useTable(s.tableName());
             case CreateSchemaStatement s -> {
@@ -46,6 +46,10 @@ public class Executor {
                 if (!r.isSuccess()) yield r;
                 yield context.getSchemaService().createTable(s.table());
             }
+        };
+    }
+    public ExecuteResult executeUpdate(UpdateStatement stmt) {
+        return switch (stmt) {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
