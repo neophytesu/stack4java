@@ -1,15 +1,17 @@
 package mysql.ast.parser;
 
+import mysql.ast.parser.token.EqCondition;
+import mysql.ast.parser.token.TokenStream;
+import mysql.ast.parser.token.TokenType;
 import mysql.ast.statement.*;
 import mysql.core.EngineContext;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-
-import static mysql.ast.parser.SqlParserUtil.*;
 
 public class SqlParser {
     private final EngineContext context;
+    private final SqlLexer lexer = new SqlLexer();
 
     public SqlParser(EngineContext context) {
         this.context = context;
@@ -23,83 +25,105 @@ public class SqlParser {
     }
 
     public UpdateStatement parseDml(String sql) {
-        sql = preprocess(sql);
-        String keyword = firstKeyword(sql);
-        return switch (keyword.toUpperCase()) {
-            case "INSERT" -> parseInsert(sql);
-            case "UPDATE" -> parseUpdate(sql);
-            case "DELETE" -> parseDelete(sql);
-            default -> throw new SqlParseException("不支持: " + keyword);
+        TokenStream stream = getTokenStream(sql);
+        TokenType type = stream.peek().type();
+        return switch (type) {
+            case INSERT -> parseInsert(stream);
+            case UPDATE -> parseUpdate(stream);
+            case DELETE -> parseDelete(stream);
+            default -> throw new SqlParseException("不支持: " + type);
         };
+    }
+
+    private TokenStream getTokenStream(String sql) {
+        return new TokenStream(lexer.tokenize(sql));
     }
 
     public QueryStatement parseDql(String sql) {
-        sql = preprocess(sql);
-        String keyword = firstKeyword(sql);
-        if (keyword.equalsIgnoreCase("SELECT")) {
-            return parseSelect(sql);
-        }
-        throw new SqlParseException("不支持: " + keyword);
-    }
-
-    public DefineStatement parseDdl(String sql) {
-        sql = preprocess(sql);
-        String keyword = firstKeyword(sql);
-        return switch (keyword.toUpperCase()) {
-            case "CREATE" -> parseCreate(sql);
-            case "USE" -> parseUse(sql);
-            default -> throw new SqlParseException("不支持: " + keyword);
+        TokenStream stream = getTokenStream(sql);
+        TokenType type = stream.peek().type();
+        return switch (type) {
+            case SELECT -> parseSelect(stream);
+            default -> throw new SqlParseException("不支持: " + type);
         };
     }
 
-    private UpdateStatement parseDelete(String sql) {
-        String tableName = between(sql, "DELETE FROM ", " WHERE ");
-        String afterWhere = after(sql, " WHERE ");
-        String[] wherePair = splitEquals(afterWhere);
-        return new DeleteByPrimaryKeyStatement(currentSchemaName(), tableName.trim(), parseLiteral(wherePair[1]));
+    public DefineStatement parseDdl(String sql) {
+        TokenStream stream = getTokenStream(sql);
+        TokenType type = stream.peek().type();
+        return switch (type) {
+            case CREATE -> parseCreate(stream);
+            case USE -> parseUse(stream);
+            default -> throw new SqlParseException("不支持: " + type);
+        };
     }
 
-    private UpdateStatement parseUpdate(String sql) {
-        String afterUpdate = after(sql, "UPDATE ");
-        String tableName = before(afterUpdate, " SET ");
-        String afterSet = between(afterUpdate, " SET ", " WHERE ");
-        String[] setPair = splitEquals(afterSet);
-        String afterWhere = after(sql, " WHERE ");
-        String[] wherePair = splitEquals(afterWhere);
-        return new UpdateByPrimaryKeyStatement(currentSchemaName(), tableName.trim(), parseLiteral(wherePair[1]), setPair[0].trim(), parseLiteral(setPair[1]));
+    private UpdateStatement parseDelete(TokenStream stream) {
+        stream.expect(TokenType.DELETE);
+        stream.expect(TokenType.FROM);
+        String tableName = stream.expectIdentifier();
+        stream.expect(TokenType.WHERE);
+        EqCondition eqCondition = stream.parseEqCondition();
+        stream.expect(TokenType.EOF);
+        return new DeleteByPrimaryKeyStatement(currentSchemaName(), tableName, eqCondition.value());
+    }
+
+    private UpdateStatement parseUpdate(TokenStream stream) {
+        stream.expect(TokenType.UPDATE);
+        String tableName = stream.expectIdentifier();
+        stream.expect(TokenType.SET);
+        String setColumn = stream.expectIdentifier();
+        stream.expect(TokenType.EQ);
+        Object newValue = stream.expectLiteralValue();
+        stream.expect(TokenType.WHERE);
+        EqCondition eqCondition = stream.parseEqCondition();
+        stream.expect(TokenType.EOF);
+        return new UpdateByPrimaryKeyStatement(currentSchemaName(), tableName, eqCondition.value(), setColumn, newValue);
     }
 
 
-    private QueryStatement parseSelect(String sql) {
-        if (sql.contains(" WHERE ")) {
-            String tableName = between(sql, "SELECT * FROM", " WHERE ").trim();
-            String wherePart = after(sql, " WHERE ");
-            String[] eq = splitEquals(wherePart);
-            return new SelectWhereStatement(currentSchemaName(), tableName, eq[0].trim(), parseLiteral(eq[1].trim()));
-        } else {
-            String tableName = after(sql, "SELECT * FROM").trim();
-            return new SelectAllStatement(currentSchemaName(), tableName);
+    private QueryStatement parseSelect(TokenStream stream) {
+        stream.expect(TokenType.SELECT);
+        stream.expect(TokenType.STAR);
+        stream.expect(TokenType.FROM);
+        String tableName = stream.expectIdentifier();
+        if (stream.match(TokenType.WHERE)) {
+            EqCondition eq = stream.parseEqCondition();
+            stream.expect(TokenType.EOF);
+            return new SelectWhereStatement(currentSchemaName(), tableName, eq.column(), eq.value());
         }
+        stream.expect(TokenType.EOF);
+        return new SelectAllStatement(currentSchemaName(), tableName);
     }
 
-    private UpdateStatement parseInsert(String sql) {
-        String tableName = between(sql, "INSERT INTO ", " VALUES").trim();
-        String valuesPart = betweenParentheses(sql, "VALUES");
-        List<Object> values = parseValueList(valuesPart);
+    private UpdateStatement parseInsert(TokenStream stream) {
+        stream.expect(TokenType.INSERT);
+        stream.expect(TokenType.INTO);
+        String tableName = stream.expectIdentifier();
+        stream.expect(TokenType.VALUES);
+        stream.expect(TokenType.LPAREN);
+        List<Object> values = new ArrayList<>();
+        do {
+            values.add(stream.expectLiteralValue());
+        } while (stream.match(TokenType.COMMA));
+        stream.expect(TokenType.RPAREN);
+        stream.expect(TokenType.EOF);
         return new InsertStatement(currentSchemaName(), tableName, values);
     }
 
-    private DefineStatement parseUse(String sql) {
-        List<String> parts = Arrays.asList(sql.split(" "));
-        return new UseSchemaStatement(parts.get(1));
+    private DefineStatement parseUse(TokenStream stream) {
+        stream.expect(TokenType.USE);
+        String schemaName = stream.expectIdentifier();
+        stream.expect(TokenType.EOF);
+        return new UseSchemaStatement(schemaName);
     }
 
-    private DefineStatement parseCreate(String sql) {
-        List<String> parts = Arrays.asList(sql.split(" "));
-        if (parts.get(1).equalsIgnoreCase("SCHEMA")) {
-            return new CreateSchemaStatement(parts.get(2));
-        }
-        throw new SqlParseException("sql CREATE语句存在错误");
+    private DefineStatement parseCreate(TokenStream stream) {
+        stream.expect(TokenType.CREATE);
+        stream.expect(TokenType.SCHEMA);
+        String schemaName = stream.expectIdentifier();
+        stream.expect(TokenType.EOF);
+        return new CreateSchemaStatement(schemaName);
     }
 
 }

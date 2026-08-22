@@ -1,0 +1,21 @@
+package mysql.ast.parser.token;
+
+public enum TokenType {
+    INSERT, INTO, VALUES,
+    SELECT, FROM, WHERE,
+    UPDATE, SET, DELETE,
+    CREATE, SCHEMA, TABLE, USE,
+
+    IDENTIFIER,
+    INT_LITERAL,
+    STRING_LITERAL,
+    BOOLEAN_LITERAL,
+
+    STAR,
+    COMMA,
+    LPAREN, RPAREN,
+    EQ,
+    SEMICOLON,
+
+    EOF
+}
