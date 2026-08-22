@@ -5,39 +5,37 @@ import lombok.Getter;
 public enum ColumnType {
     INTEGER(Integer.class) {
         @Override
-        public boolean equalsValue(Object a, Object b) {
-            return ((Integer) a).intValue() == ((Integer) b).intValue();
+        public Object copyValue(Object v) {
+            return v;
         }
 
         @Override
-        public Object copyValue(Object v) {
-            return v;
+        public int compare(Object left, Object right) {
+            return (Integer) left - (Integer) right;
         }
     }, VARCHAR(String.class) {
         @Override
-        public boolean equalsValue(Object a, Object b) {
-            return a.equals(b);
+        public Object copyValue(Object v) {
+            return v;
         }
 
         @Override
-        public Object copyValue(Object v) {
-            return v;
+        public int compare(Object left, Object right) {
+            return left.toString().compareTo((String) right);
         }
     }, BOOLEAN(Boolean.class) {
         @Override
-        public boolean equalsValue(Object a, Object b) {
-            return ((Boolean) a).booleanValue() == ((Boolean) b).booleanValue();
+        public Object copyValue(Object v) {
+            return v;
         }
 
         @Override
-        public Object copyValue(Object v) {
-            return v;
+        public int compare(Object left, Object right) {
+            return ((Boolean) left).compareTo((Boolean) right);
         }
     };
     @Getter
     private final Class<?> javaType;
-
-    public abstract boolean equalsValue(Object a, Object b);
 
     public abstract Object copyValue(Object v);
 
@@ -51,4 +49,6 @@ public enum ColumnType {
         }
         return !javaType.isInstance(value);
     }
+
+    public abstract int compare(Object left, Object right);
 }

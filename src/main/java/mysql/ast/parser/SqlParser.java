@@ -1,6 +1,6 @@
 package mysql.ast.parser;
 
-import mysql.ast.parser.token.EqCondition;
+import mysql.ast.expr.Expr;
 import mysql.ast.parser.token.TokenStream;
 import mysql.ast.parser.token.TokenType;
 import mysql.ast.statement.*;
@@ -63,9 +63,9 @@ public class SqlParser {
         stream.expect(TokenType.FROM);
         String tableName = stream.expectIdentifier();
         stream.expect(TokenType.WHERE);
-        EqCondition eqCondition = stream.parseEqCondition();
+        Expr where = stream.parseWhere();
         stream.expect(TokenType.EOF);
-        return new DeleteByPrimaryKeyStatement(currentSchemaName(), tableName, eqCondition.value());
+        return new DeleteWhereStatement(currentSchemaName(), tableName, where);
     }
 
     private UpdateStatement parseUpdate(TokenStream stream) {
@@ -76,9 +76,9 @@ public class SqlParser {
         stream.expect(TokenType.EQ);
         Object newValue = stream.expectLiteralValue();
         stream.expect(TokenType.WHERE);
-        EqCondition eqCondition = stream.parseEqCondition();
+        Expr where = stream.parseWhere();
         stream.expect(TokenType.EOF);
-        return new UpdateByPrimaryKeyStatement(currentSchemaName(), tableName, eqCondition.value(), setColumn, newValue);
+        return new UpdateWhereStatement(currentSchemaName(), tableName, setColumn, newValue, where);
     }
 
 
@@ -88,9 +88,9 @@ public class SqlParser {
         stream.expect(TokenType.FROM);
         String tableName = stream.expectIdentifier();
         if (stream.match(TokenType.WHERE)) {
-            EqCondition eq = stream.parseEqCondition();
+            Expr where = stream.parseWhere();
             stream.expect(TokenType.EOF);
-            return new SelectWhereStatement(currentSchemaName(), tableName, eq.column(), eq.value());
+            return new SelectWhereStatement(currentSchemaName(), tableName, where);
         }
         stream.expect(TokenType.EOF);
         return new SelectAllStatement(currentSchemaName(), tableName);

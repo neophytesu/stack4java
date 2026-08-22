@@ -14,7 +14,8 @@ public enum TokenType {
     STAR,
     COMMA,
     LPAREN, RPAREN,
-    EQ,
+    EQ, NE, LT, LE, GT, GE,
+    AND, OR,
     SEMICOLON,
 
     EOF

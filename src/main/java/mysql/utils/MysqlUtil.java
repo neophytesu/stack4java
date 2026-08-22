@@ -1,5 +1,6 @@
 package mysql.utils;
 
+import mysql.ast.expr.CompareOp;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
@@ -8,12 +9,6 @@ import mysql.storage.Row;
 import java.util.*;
 
 public class MysqlUtil {
-    public static boolean compareRowValue(Object a, Object b, ColumnType columnType) {
-        if (a == null || b == null) {
-            return a == b;
-        }
-        return columnType.equalsValue(a, b);
-    }
 
     public static Object deepCopyValue(Object value, ColumnType columnType) {
         return columnType.copyValue(value);
@@ -28,7 +23,7 @@ public class MysqlUtil {
         for (String columnName : columnNames) {
             Integer index = columnIndexMap.get(columnName);
             if (index == null) {
-                throw new MysqlExecuteException(101L, "没找到列名为" + columnName + "的列");
+                throw MysqlExecuteException.COLUMN_NOT_FIND(columnName);
             }
             columnIndices.add(index);
         }
@@ -53,6 +48,25 @@ public class MysqlUtil {
         Row newRow = new Row();
         newRow.setValues(data);
         return newRow;
+    }
+
+    public static boolean compare(Object left, Object right, ColumnType columnType, CompareOp op) {
+        if (left == null || right == null) {
+            return switch (op) {
+                case EQ -> left == right;
+                case NE -> left != right;
+                default -> throw MysqlExecuteException.NULL_NOT_SUPPORTED_COMPARE();
+            };
+        }
+        int cmp = columnType.compare(left, right);
+        return switch (op) {
+            case EQ -> cmp == 0;
+            case NE -> cmp != 0;
+            case GT -> cmp > 0;
+            case GE -> cmp >= 0;
+            case LT -> cmp < 0;
+            case LE -> cmp <= 0;
+        };
     }
 
 }

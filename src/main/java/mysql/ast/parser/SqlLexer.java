@@ -40,6 +40,34 @@ public class SqlLexer {
                 pos++;
                 continue;
             }
+            if (c == '<') {
+                if (pos + 1 < sql.length() && sql.charAt(pos + 1) == '=') {
+                    tokens.add(Token.symbol(TokenType.LE, "<="));
+                    pos += 2;
+                } else if (pos + 1 < sql.length() && sql.charAt(pos + 1) == '>') {
+                    tokens.add(Token.symbol(TokenType.NE, "<>"));
+                    pos += 2;
+                } else {
+                    tokens.add(Token.symbol(TokenType.LT, '<'));
+                    pos++;
+                }
+                continue;
+            }
+            if (c == '>') {
+                if (pos + 1 < sql.length() && sql.charAt(pos + 1) == '=') {
+                    tokens.add(Token.symbol(TokenType.GE, ">="));
+                    pos += 2;
+                } else {
+                    tokens.add(Token.symbol(TokenType.GT, '>'));
+                    pos++;
+                }
+                continue;
+            }
+            if (c == '!' && pos + 1 < sql.length() && sql.charAt(pos + 1) == '=') {
+                tokens.add(Token.symbol(TokenType.NE, "!="));
+                pos += 2;
+                continue;
+            }
             if (c == '*') {
                 tokens.add(Token.symbol(TokenType.STAR, '*'));
                 pos++;

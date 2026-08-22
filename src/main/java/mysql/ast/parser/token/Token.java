@@ -26,6 +26,10 @@ public record Token(TokenType type, String lexeme, Object value) {
         return new Token(type, String.valueOf(c), null);
     }
 
+    public static Token symbol(TokenType type, String s) {
+        return new Token(type, s, null);
+    }
+
     public static Token eof() {
         return new Token(TokenType.EOF, "", null);
     }

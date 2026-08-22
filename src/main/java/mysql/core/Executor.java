@@ -20,7 +20,7 @@ public class Executor {
         return switch (stmt) {
             case SelectWhereStatement s -> {
                 requireSchemaAndTable(s.schemaName(), s.tableName());
-                yield context.getTableService().selectWhere(s.columnName(), s.value());
+                yield context.getTableService().selectWhere(s.where());
             }
             case SelectAllStatement s -> {
                 requireSchemaAndTable(s.schemaName(), s.tableName());
@@ -32,8 +32,9 @@ public class Executor {
             }
         };
     }
+
     public ExecuteResult executeDefine(DefineStatement stmt) {
-        return switch (stmt){
+        return switch (stmt) {
             case UseSchemaStatement s -> context.useSchema(s.schemaName());
             case UseTableStatement s -> context.useTable(s.tableName());
             case CreateSchemaStatement s -> {
@@ -48,6 +49,7 @@ public class Executor {
             }
         };
     }
+
     public ExecuteResult executeUpdate(UpdateStatement stmt) {
         return switch (stmt) {
             case InsertStatement s -> {
@@ -55,21 +57,21 @@ public class Executor {
                 if (!r.isSuccess()) yield r;
                 yield context.getTableService().insert(s.values());
             }
-            case UpdateByPrimaryKeyStatement s -> {
+            case UpdateWhereStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
                 int columnIdx = MysqlUtil.columnName2Index(List.of(s.columnName()), context.getCurrentTable().getColumns()).getFirst();
-                yield context.getTableService().updateByPrimaryKey(s.pkValue(), columnIdx, s.newValue());
+                yield context.getTableService().updateWhere(s.where(), columnIdx, s.newValue());
             }
             case DeleteAllStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
                 yield context.getTableService().deleteAll();
             }
-            case DeleteByPrimaryKeyStatement s -> {
+            case DeleteWhereStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().deleteByPrimaryKey(s.pkValue());
+                yield context.getTableService().deleteWhere(s.where());
             }
         };
     }
@@ -79,11 +81,11 @@ public class Executor {
         if (!r.isSuccess()) return r;
         return context.useTable(tableName);
     }
-    
+
     private void requireSchemaAndTable(String schemaName, String tableName) {
         ExecuteResult r = ensureSchemaAndTable(schemaName, tableName);
-        if (!r.isSuccess()){
-            throw new MysqlExecuteException(r.code(),r.description());
+        if (!r.isSuccess()) {
+            throw new MysqlExecuteException(r.code(), r.description());
         }
     }
 

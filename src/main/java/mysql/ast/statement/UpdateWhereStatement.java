@@ -1,10 +1,12 @@
 package mysql.ast.statement;
 
-public record UpdateByPrimaryKeyStatement(
+import mysql.ast.expr.Expr;
+
+public record UpdateWhereStatement(
         String schemaName,
         String tableName,
-        Object pkValue,
         String columnName,
-        Object newValue
+        Object newValue,
+        Expr where
 ) implements UpdateStatement {
 }

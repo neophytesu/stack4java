@@ -1,5 +1,9 @@
 package mysql.ast.parser.token;
 
+import mysql.ast.expr.AndExpr;
+import mysql.ast.expr.CompareExpr;
+import mysql.ast.expr.CompareOp;
+import mysql.ast.expr.Expr;
 import mysql.ast.parser.SqlParseException;
 
 import java.util.List;
@@ -57,10 +61,30 @@ public class TokenStream {
         return peek().type() == tokenType;
     }
 
-    public EqCondition parseEqCondition() {
+    public Expr parseWhere() {
+        Expr left = parseCompareExpr();
+        while (match(TokenType.AND)) {
+            left = new AndExpr(left, parseCompareExpr());
+        }
+        return left;
+    }
+
+    private Expr parseCompareExpr() {
         String column = expectIdentifier();
-        expect(TokenType.EQ);
+        CompareOp op = parseCompareOp();
         Object value = expectLiteralValue();
-        return new EqCondition(column, value);
+        return new CompareExpr(column, op, value);
+    }
+
+    private CompareOp parseCompareOp() {
+        return switch (next().type()) {
+            case EQ -> CompareOp.EQ;
+            case NE -> CompareOp.NE;
+            case LT -> CompareOp.LT;
+            case GT -> CompareOp.GT;
+            case LE -> CompareOp.LE;
+            case GE -> CompareOp.GE;
+            default -> throw new SqlParseException("期望比较运算符");
+        };
     }
 }

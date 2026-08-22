@@ -1,6 +1,8 @@
 package mysql.service;
 
 import lombok.Data;
+import mysql.ast.expr.Expr;
+import mysql.ast.expr.ExprEvaluator;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
@@ -80,53 +82,27 @@ public class TableService {
         return Collections.unmodifiableList(result);
     }
 
-    public List<Row> selectWhere(String columnName, Object value) {
-        int idx = -1;
-        List<Column> columns = table.getColumns();
-        for (int i = 0; i < columns.size(); i++) {
-            if (columnName.equals(columns.get(i).getColumnName())) {
-                idx = i;
-                break;
-            }
-        }
-        if (idx == -1) {
-            throw new MysqlExecuteException(102L, "列" + columnName + "不存在");
-        }
-        List<Row> res = new ArrayList<>();
-        ColumnType columnType = columns.get(idx).getColumnType();
-        if (columnType.refuse(value)) {
-            throw new MysqlExecuteException(103L, "列" + columnName + "的类型和插入值" + value + "不符");
-        }
-        for (Row row : table.getRows()) {
-            if (MysqlUtil.compareRowValue(row.getValues()[idx], value, columnType)) {
-                res.add(MysqlUtil.copyRow(row));
-            }
-        }
-        return Collections.unmodifiableList(res);
-    }
-
     public ExecuteResult deleteAll() {
         int num = table.getRows().size();
         table.getRows().clear();
         return ExecuteResult.DELETE_SUCCESS(num);
     }
 
-    public ExecuteResult deleteByPrimaryKey(Object primaryValue) {
-        int primaryKeyIdx = table.getPrimaryIdx();
-        ColumnType columnType = table.getColumns().get(primaryKeyIdx).getColumnType();
+    public ExecuteResult deleteWhere(Expr where) {
         List<Row> rows = table.getRows();
-        for (int i = 0; i < table.getRows().size(); i++) {
-            if (MysqlUtil.compareRowValue(primaryValue, rows.get(i).getValues()[primaryKeyIdx], columnType)) {
+        int count = 0;
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            if (ExprEvaluator.eval(where, rows.get(i), table)) {
                 rows.remove(i);
-                return ExecuteResult.DELETE_SUCCESS(1);
+                count++;
             }
         }
-        return ExecuteResult.DELETE_SUCCESS(0);
+        return ExecuteResult.DELETE_SUCCESS(count);
     }
 
     public ExecuteResult updateAll(Integer columnIdx, Object newValue) {
         if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
-            throw new MysqlExecuteException(104L, "列索引越界");
+            throw MysqlExecuteException.COLUMN_INDEX_OVER();
         }
         Column column = table.getColumns().get(columnIdx);
         if (column.getColumnType().refuse(newValue)) {
@@ -138,27 +114,32 @@ public class TableService {
         return ExecuteResult.UPDATE_SUCCESS(table.getRows().size());
     }
 
-    public ExecuteResult updateByPrimaryKey(Object pkValue, int columnIdx, Object newValue) {
+    public ExecuteResult updateWhere(Expr where, int columnIdx, Object newValue) {
         if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
-            throw new MysqlExecuteException(104L, "列索引越界");
+            throw MysqlExecuteException.COLUMN_INDEX_OVER();
         }
-        int pkIdx = table.getPrimaryIdx();
-        Column pkColumn = table.getColumns().get(pkIdx);
-        ColumnType pkColumnType = pkColumn.getColumnType();
         Column column = table.getColumns().get(columnIdx);
         ColumnType columnType = column.getColumnType();
-        if (pkColumnType.refuse(pkValue)) {
-            throw new MysqlExecuteException(103L, "列" + pkColumn.getColumnName() + "的类型和检索值" + pkValue + "不符");
-        }
         if (columnType.refuse(newValue)) {
-            throw new MysqlExecuteException(103L, "列" + column.getColumnName() + "的类型和插入值" + newValue + "不符");
+            throw MysqlExecuteException.COLUMN_TYPE_NOT_MATCHED(column.getColumnName(), newValue);
         }
+        int count = 0;
         for (Row row : table.getRows()) {
-            if (MysqlUtil.compareRowValue(pkValue, row.getValues()[pkIdx], pkColumnType)) {
+            if (ExprEvaluator.eval(where, row, table)) {
                 row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, columnType);
-                return ExecuteResult.UPDATE_SUCCESS(1);
+                count++;
             }
         }
-        return ExecuteResult.UPDATE_SUCCESS(0);
+        return ExecuteResult.UPDATE_SUCCESS(count);
+    }
+
+    public List<Row> selectWhere(Expr where) {
+        List<Row> res = new ArrayList<>();
+        for (Row row : table.getRows()) {
+            if (ExprEvaluator.eval(where, row, table)) {
+                res.add(MysqlUtil.copyRow(row));
+            }
+        }
+        return Collections.unmodifiableList(res);
     }
 }
