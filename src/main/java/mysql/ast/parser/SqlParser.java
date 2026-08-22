@@ -5,6 +5,9 @@ import mysql.ast.parser.token.TokenStream;
 import mysql.ast.parser.token.TokenType;
 import mysql.ast.statement.*;
 import mysql.core.EngineContext;
+import mysql.storage.Column;
+import mysql.storage.ColumnType;
+import mysql.storage.Table;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,10 +65,13 @@ public class SqlParser {
         stream.expect(TokenType.DELETE);
         stream.expect(TokenType.FROM);
         String tableName = stream.expectIdentifier();
-        stream.expect(TokenType.WHERE);
-        Expr where = stream.parseWhere();
+        if (stream.match(TokenType.WHERE)) {
+            Expr where = stream.parseWhere();
+            stream.expect(TokenType.EOF);
+            return new DeleteWhereStatement(currentSchemaName(), tableName, where);
+        }
         stream.expect(TokenType.EOF);
-        return new DeleteWhereStatement(currentSchemaName(), tableName, where);
+        return new DeleteAllStatement(currentSchemaName(), tableName);
     }
 
     private UpdateStatement parseUpdate(TokenStream stream) {
@@ -84,16 +90,28 @@ public class SqlParser {
 
     private QueryStatement parseSelect(TokenStream stream) {
         stream.expect(TokenType.SELECT);
-        stream.expect(TokenType.STAR);
+        List<String> columns;
+        if (stream.match(TokenType.STAR)) {
+            columns = null;
+        } else {
+            columns = parseColumnList(stream);
+        }
         stream.expect(TokenType.FROM);
         String tableName = stream.expectIdentifier();
+        Expr where = null;
         if (stream.match(TokenType.WHERE)) {
-            Expr where = stream.parseWhere();
-            stream.expect(TokenType.EOF);
-            return new SelectWhereStatement(currentSchemaName(), tableName, where);
+            where = stream.parseWhere();
         }
         stream.expect(TokenType.EOF);
-        return new SelectAllStatement(currentSchemaName(), tableName);
+        return new SelectStatement(currentSchemaName(), tableName, columns, where);
+    }
+
+    private List<String> parseColumnList(TokenStream stream) {
+        List<String> columns = new ArrayList<>();
+        do {
+            columns.add(stream.expectIdentifier());
+        } while (stream.match(TokenType.COMMA));
+        return columns;
     }
 
     private UpdateStatement parseInsert(TokenStream stream) {
@@ -120,10 +138,75 @@ public class SqlParser {
 
     private DefineStatement parseCreate(TokenStream stream) {
         stream.expect(TokenType.CREATE);
-        stream.expect(TokenType.SCHEMA);
-        String schemaName = stream.expectIdentifier();
+        if (stream.match(TokenType.SCHEMA)) {
+            String schemaName = stream.expectIdentifier();
+            stream.expect(TokenType.EOF);
+            return new CreateSchemaStatement(schemaName);
+        }
+        if (stream.match(TokenType.TABLE)) {
+            return parseCreateTable(stream);
+        }
+        throw new SqlParseException("CREATE 后期望 SCHEMA 或 TABLE");
+    }
+
+    private DefineStatement parseCreateTable(TokenStream stream) {
+        String tableName = stream.expectIdentifier();
+        stream.expect(TokenType.LPAREN);
+        List<Column> columns = new ArrayList<>();
+        String primaryKeyColumn = null;
+        do {
+            if (stream.check(TokenType.PRIMARY)) {
+                stream.expect(TokenType.PRIMARY);
+                stream.expect(TokenType.KEY);
+                stream.expect(TokenType.LPAREN);
+                primaryKeyColumn = stream.expectIdentifier();
+                stream.expect(TokenType.RPAREN);
+                break;
+            }
+            String columnName = stream.expectIdentifier();
+            ColumnType type = parseColumnType(stream);
+            columns.add(new Column(columnName, type));
+        } while (stream.match(TokenType.COMMA));
+        stream.expect(TokenType.RPAREN);
         stream.expect(TokenType.EOF);
-        return new CreateSchemaStatement(schemaName);
+        if (primaryKeyColumn == null) {
+            throw new SqlParseException("必须指定主键");
+        }
+        int pkIdx = findColumnIndex(columns, primaryKeyColumn);
+        Table table = new Table();
+        table.setTableName(tableName);
+        table.setColumns(columns);
+        table.setPrimaryIdx(pkIdx);
+        table.setRows(new ArrayList<>());
+        return new CreateTableStatement(currentSchemaName(), table);
+    }
+
+    private int findColumnIndex(List<Column> columns, String name) {
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getColumnName().equals(name)) {
+                return i;
+            }
+        }
+        throw new SqlParseException("主键列不存在：" + name);
+    }
+
+    private ColumnType parseColumnType(TokenStream stream) {
+        TokenType type = stream.peek().type();
+        return switch (type) {
+            case INT -> {
+                stream.next();
+                yield ColumnType.INTEGER;
+            }
+            case VARCHAR -> {
+                stream.next();
+                yield ColumnType.VARCHAR;
+            }
+            case BOOLEAN -> {
+                stream.next();
+                yield ColumnType.BOOLEAN;
+            }
+            default -> throw new SqlParseException("不支持的类型：" + type);
+        };
     }
 
 }

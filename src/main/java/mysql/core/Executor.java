@@ -18,17 +18,9 @@ public class Executor {
 
     public List<Row> executeQuery(QueryStatement stmt) {
         return switch (stmt) {
-            case SelectWhereStatement s -> {
+            case SelectStatement s -> {
                 requireSchemaAndTable(s.schemaName(), s.tableName());
-                yield context.getTableService().selectWhere(s.where());
-            }
-            case SelectAllStatement s -> {
-                requireSchemaAndTable(s.schemaName(), s.tableName());
-                yield context.getTableService().selectAll();
-            }
-            case SelectColumnsStatement s -> {
-                requireSchemaAndTable(s.schemaName(), s.tableName());
-                yield context.getTableService().selectColumns(s.columnNames());
+                yield context.getTableService().select(s.columns(), s.where());
             }
         };
     }

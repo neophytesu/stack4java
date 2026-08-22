@@ -62,26 +62,6 @@ public class TableService {
         return ExecuteResult.INSERT_SUCCESS(1);
     }
 
-    public List<Row> selectAll() {
-        return Collections.unmodifiableList(table.getRows());
-    }
-
-    public List<Row> selectColumns(List<String> columnNames) {
-        List<Integer> columnIndices = MysqlUtil.columnName2Index(columnNames, table.getColumns());
-        int len = columnIndices.size();
-        List<Row> result = new ArrayList<>();
-        for (Row row : table.getRows()) {
-            Object[] selectData = new Object[len];
-            for (int i = 0; i < len; i++) {
-                selectData[i] = row.getValues()[columnIndices.get(i)];
-            }
-            Row selectRow = new Row();
-            selectRow.setValues(selectData);
-            result.add(selectRow);
-        }
-        return Collections.unmodifiableList(result);
-    }
-
     public ExecuteResult deleteAll() {
         int num = table.getRows().size();
         table.getRows().clear();
@@ -133,13 +113,30 @@ public class TableService {
         return ExecuteResult.UPDATE_SUCCESS(count);
     }
 
-    public List<Row> selectWhere(Expr where) {
-        List<Row> res = new ArrayList<>();
-        for (Row row : table.getRows()) {
-            if (ExprEvaluator.eval(where, row, table)) {
-                res.add(MysqlUtil.copyRow(row));
+    public List<Row> select(List<String> columnNames, Expr where) {
+        List<Column> columns = table.getColumns();
+        List<Integer> indices;
+        if (columnNames == null) {
+            indices = new ArrayList<>();
+            for (int i = 0; i < columns.size(); i++) {
+                indices.add(i);
             }
+        } else {
+            indices = MysqlUtil.columnName2Index(columnNames, columns);
         }
-        return Collections.unmodifiableList(res);
+        List<Row> result = new ArrayList<>();
+        for (Row row : table.getRows()) {
+            if (where != null && !ExprEvaluator.eval(where, row, table)) {
+                continue;
+            }
+            Object[] projected = new Object[indices.size()];
+            for (int i = 0; i < indices.size(); i++) {
+                projected[i] = row.getValues()[indices.get(i)];
+            }
+            Row out = new Row();
+            out.setValues(projected);
+            result.add(out);
+        }
+        return Collections.unmodifiableList(result);
     }
 }

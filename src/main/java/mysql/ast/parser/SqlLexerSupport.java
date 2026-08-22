@@ -11,6 +11,8 @@ public class SqlLexerSupport {
             "SELECT", "FROM", "WHERE",
             "UPDATE", "SET", "DELETE",
             "CREATE", "SCHEMA", "TABLE", "USE",
+            "PRIMARY", "KEY",
+            "INT", "VARCHAR", "BOOLEAN",
             "TRUE", "FALSE",
             "AND"
     );

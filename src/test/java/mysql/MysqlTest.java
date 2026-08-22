@@ -24,20 +24,18 @@ public class MysqlTest {
         SqlParser parser = new SqlParser(context);
         executor.executeDefine(parser.parseDdl("CREATE SCHEMA myDb"));
         executor.executeDefine(parser.parseDdl("USE myDb"));
-        Table table = new Table();
-        table.setTableName("user");
-        table.setPrimaryIdx(0);
-        table.setColumns(List.of(
-                new Column("id", ColumnType.INTEGER),
-                new Column("name", ColumnType.VARCHAR),
-                new Column("age", ColumnType.INTEGER)));
-        table.setRows(new ArrayList<>());
-        executor.executeDefine(new CreateTableStatement("myDb", table));
-        executor.executeUpdate(parser.parseDml("INSERT INTO user VALUES (1, 'Alice', 20)"));
-        executor.executeUpdate(parser.parseDml("INSERT INTO user VALUES (2, 'Bob', 25)"));
+        String sql = "CREATE TABLE user (id INT, name VARCHAR, age INT, PRIMARY KEY (id))";
+        System.out.println(sql);
+        executor.executeDefine(parser.parseDdl(sql));
+        sql = "INSERT INTO user VALUES (1, 'Alice', 20)";
+        System.out.println(sql);
+        executor.executeUpdate(parser.parseDml(sql));
+        sql = "INSERT INTO user VALUES (2, 'Bob', 30)";
+        System.out.println(sql);
+        executor.executeUpdate(parser.parseDml(sql));
         printTable(executor, parser, "user");
 
-        String sql = "SELECT * FROM user WHERE name = 'Alice'";
+        sql = "SELECT * FROM user WHERE name = 'Alice'";
         var rows = executor.executeQuery(
                 parser.parseDql(sql));
         System.out.println(sql);
@@ -55,6 +53,16 @@ public class MysqlTest {
         printTable(executor, parser, "user");
 
         sql = "DELETE FROM user WHERE age >= 25";
+        executor.executeUpdate(parser.parseDml(sql));
+        System.out.println(sql);
+        printTable(executor, parser, "user");
+
+        sql = "SELECT id, name FROM user";
+        rows = executor.executeQuery(parser.parseDql(sql));
+        System.out.println(sql);
+        System.out.println(rows);
+
+        sql = "DELETE FROM user";
         executor.executeUpdate(parser.parseDml(sql));
         System.out.println(sql);
         printTable(executor, parser, "user");

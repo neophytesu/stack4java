@@ -5,6 +5,9 @@ public enum TokenType {
     SELECT, FROM, WHERE,
     UPDATE, SET, DELETE,
     CREATE, SCHEMA, TABLE, USE,
+    PRIMARY, KEY,
+
+    INT, VARCHAR, BOOLEAN,
 
     IDENTIFIER,
     INT_LITERAL,
