@@ -1,17 +1,24 @@
 package mysql.base;
 
+import java.util.List;
+
 public record ExecuteResult(Long code, String description) {
 
     public static ExecuteResult convertException(MysqlExecuteException e) {
         return new ExecuteResult(e.getCode(), e.getDescription());
     }
 
-    public static ExecuteResult SUCCESS() {
-        return new ExecuteResult(1L, "执行成功");
+    public boolean isSuccess() {
+        List<Long> successCodes = List.of(1L, 10L, 11L, 12L);
+        return successCodes.contains(code);
     }
 
-    public boolean isSuccess() {
-        return this.code.intValue() == 1;
+    public boolean isFailure() {
+        return !isSuccess();
+    }
+
+    public static ExecuteResult SUCCESS() {
+        return new ExecuteResult(1L, "执行成功");
     }
 
     public static ExecuteResult TABLE_EXIST() {

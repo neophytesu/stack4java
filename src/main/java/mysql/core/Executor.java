@@ -3,10 +3,7 @@ package mysql.core;
 import mysql.ast.statement.*;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
-import mysql.storage.Row;
 import mysql.storage.Schema;
-
-import java.util.List;
 
 public class Executor {
     private final EngineContext context;
@@ -15,16 +12,31 @@ public class Executor {
         this.context = context;
     }
 
-    public List<Row> executeQuery(QueryStatement stmt) {
+    public SqlResult execute(Statement stmt) {
+        try {
+            return switch (stmt) {
+                case QueryStatement queryStmt -> executeQuery(queryStmt);
+                case ManipulateStatement manipulateStmt -> SqlResult.of(executeManipulate(manipulateStmt));
+                case DefineStatement defineStmt -> SqlResult.of(executeDefine(defineStmt));
+            };
+        } catch (MysqlExecuteException e) {
+            return SqlResult.of(ExecuteResult.convertException(e));
+        }
+    }
+
+    private SqlResult executeQuery(QueryStatement stmt) {
         return switch (stmt) {
             case SelectStatement s -> {
-                requireSchemaAndTable(s.schemaName(), s.tableName());
-                yield context.getTableService().select(s.columns(), s.where());
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) {
+                    yield SqlResult.of(r);
+                }
+                yield SqlResult.of(context.getTableService().select(s.columns(), s.where()));
             }
         };
     }
 
-    public ExecuteResult executeDefine(DefineStatement stmt) {
+    private ExecuteResult executeDefine(DefineStatement stmt) {
         return switch (stmt) {
             case UseSchemaStatement s -> context.useSchema(s.schemaName());
             case UseTableStatement s -> context.useTable(s.tableName());
@@ -41,7 +53,7 @@ public class Executor {
         };
     }
 
-    public ExecuteResult executeManipulate(ManipulateStatement stmt) {
+    private ExecuteResult executeManipulate(ManipulateStatement stmt) {
         return switch (stmt) {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
@@ -65,13 +77,6 @@ public class Executor {
         ExecuteResult r = context.useSchema(schemaName);
         if (!r.isSuccess()) return r;
         return context.useTable(tableName);
-    }
-
-    private void requireSchemaAndTable(String schemaName, String tableName) {
-        ExecuteResult r = ensureSchemaAndTable(schemaName, tableName);
-        if (!r.isSuccess()) {
-            throw new MysqlExecuteException(r.code(), r.description());
-        }
     }
 
 }

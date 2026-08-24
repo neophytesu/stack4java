@@ -1,8 +1,7 @@
 package mysql;
 
-import mysql.ast.parser.SqlParser;
-import mysql.core.EngineContext;
-import mysql.core.Executor;
+import mysql.core.SqlEngine;
+import mysql.core.SqlResult;
 import mysql.storage.Catalog;
 
 import java.util.HashMap;
@@ -13,56 +12,42 @@ public class MysqlTest {
         Catalog catalog = new Catalog();
         catalog.setName("default");
         catalog.setSchemas(new HashMap<>());
-        EngineContext context = new EngineContext(catalog);
-        Executor executor = new Executor(context);
-        SqlParser parser = new SqlParser(context);
-        executor.executeDefine(parser.parseDdl("CREATE SCHEMA myDb"));
-        executor.executeDefine(parser.parseDdl("USE myDb"));
+        SqlEngine sqlEngine = new SqlEngine(catalog);
+        sqlEngine.execute("CREATE SCHEMA myDb");
+        sqlEngine.execute("USE myDb");
         String sql = "CREATE TABLE user (id INT, name VARCHAR, age INT, PRIMARY KEY (id))";
+        String tableName = "user";
         System.out.println(sql);
-        executor.executeDefine(parser.parseDdl(sql));
+        sqlEngine.execute(sql);
         sql = "INSERT INTO user VALUES (1, 'Alice', 20)";
-        System.out.println(sql);
-        executor.executeManipulate(parser.parseDml(sql));
+        executeSql(sqlEngine, sql, tableName);
         sql = "INSERT INTO user VALUES (2, 'Bob', 30)";
-        System.out.println(sql);
-        executor.executeManipulate(parser.parseDml(sql));
-        printTable(executor, parser, "user");
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "SELECT * FROM user WHERE name = 'Alice'";
-        var rows = executor.executeQuery(
-                parser.parseDql(sql));
-        System.out.println(sql);
-        System.out.println(rows);
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "SELECT * FROM user WHERE age > 20 AND name = 'Bob'";
-        rows = executor.executeQuery(
-                parser.parseDql(sql));
-        System.out.println(sql);
-        System.out.println(rows);
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "UPDATE user SET age = 21 WHERE name = 'Alice'";
-        executor.executeManipulate(parser.parseDml(sql));
-        System.out.println(sql);
-        printTable(executor, parser, "user");
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "DELETE FROM user WHERE age >= 25";
-        executor.executeManipulate(parser.parseDml(sql));
-        System.out.println(sql);
-        printTable(executor, parser, "user");
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "SELECT id, name FROM user";
-        rows = executor.executeQuery(parser.parseDql(sql));
-        System.out.println(sql);
-        System.out.println(rows);
-
+        executeSql(sqlEngine, sql, tableName);
         sql = "DELETE FROM user";
-        executor.executeManipulate(parser.parseDml(sql));
-        System.out.println(sql);
-        printTable(executor, parser, "user");
+        executeSql(sqlEngine, sql, tableName);
     }
 
-    private static void printTable(Executor executor, SqlParser parser, String tableName) {
-        System.out.println(executor.executeQuery(parser.parseDql("SELECT * FROM " + tableName)));
+    private static void executeSql(SqlEngine sqlEngine, String sql, String tableName) {
+        SqlResult sqlResult = sqlEngine.execute(sql);
+        if (!sqlResult.isSuccess()) {
+            System.err.println(sqlResult.executeResult().description());
+            return;
+        }
+        System.out.println(sql);
+        if (sqlResult.isQuery()) {
+            System.out.println(sqlResult.rows());
+        } else {
+            System.out.println(sqlEngine.execute("SELECT * FROM " + tableName).rows());
+        }
     }
 }

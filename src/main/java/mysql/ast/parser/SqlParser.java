@@ -27,9 +27,18 @@ public class SqlParser {
         return context.getCurrentSchema().getSchemaName();
     }
 
-    public ManipulateStatement parseDml(String sql) {
-        TokenStream stream = getTokenStream(sql);
+    public Statement parse(String sql) {
+        TokenStream stream = new TokenStream(lexer.tokenize(sql));
         TokenType type = stream.peek().type();
+        return switch (type) {
+            case SELECT -> parseDql(stream, type);
+            case INSERT, UPDATE, DELETE -> parseDml(stream, type);
+            case CREATE, USE -> parseDdl(stream, type);
+            default -> throw new SqlParseException("不支持: " + type);
+        };
+    }
+
+    private ManipulateStatement parseDml(TokenStream stream, TokenType type) {
         return switch (type) {
             case INSERT -> parseInsert(stream);
             case UPDATE -> parseUpdate(stream);
@@ -38,22 +47,14 @@ public class SqlParser {
         };
     }
 
-    private TokenStream getTokenStream(String sql) {
-        return new TokenStream(lexer.tokenize(sql));
-    }
-
-    public QueryStatement parseDql(String sql) {
-        TokenStream stream = getTokenStream(sql);
-        TokenType type = stream.peek().type();
+    private QueryStatement parseDql(TokenStream stream, TokenType type) {
         return switch (type) {
             case SELECT -> parseSelect(stream);
             default -> throw new SqlParseException("不支持: " + type);
         };
     }
 
-    public DefineStatement parseDdl(String sql) {
-        TokenStream stream = getTokenStream(sql);
-        TokenType type = stream.peek().type();
+    private DefineStatement parseDdl(TokenStream stream, TokenType type) {
         return switch (type) {
             case CREATE -> parseCreate(stream);
             case USE -> parseUse(stream);
