@@ -4,7 +4,6 @@ import lombok.Data;
 import mysql.ast.expr.Expr;
 import mysql.ast.expr.ExprEvaluator;
 import mysql.base.ExecuteResult;
-import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
 import mysql.storage.Row;
@@ -62,14 +61,13 @@ public class TableService {
         return ExecuteResult.INSERT_SUCCESS(1);
     }
 
-    public ExecuteResult deleteAll() {
-        int num = table.getRows().size();
-        table.getRows().clear();
-        return ExecuteResult.DELETE_SUCCESS(num);
-    }
-
-    public ExecuteResult deleteWhere(Expr where) {
+    public ExecuteResult delete(Expr where) {
         List<Row> rows = table.getRows();
+        if (where == null) {
+            int num = rows.size();
+            rows.clear();
+            return ExecuteResult.DELETE_SUCCESS(num);
+        }
         int count = 0;
         for (int i = rows.size() - 1; i >= 0; i--) {
             if (ExprEvaluator.eval(where, rows.get(i), table)) {
@@ -80,35 +78,20 @@ public class TableService {
         return ExecuteResult.DELETE_SUCCESS(count);
     }
 
-    public ExecuteResult updateAll(Integer columnIdx, Object newValue) {
-        if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
-            throw MysqlExecuteException.COLUMN_INDEX_OVER();
-        }
-        Column column = table.getColumns().get(columnIdx);
-        if (column.getColumnType().refuse(newValue)) {
-            return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
-        }
-        for (Row row : table.getRows()) {
-            row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, column.getColumnType());
-        }
-        return ExecuteResult.UPDATE_SUCCESS(table.getRows().size());
-    }
-
-    public ExecuteResult updateWhere(Expr where, int columnIdx, Object newValue) {
-        if (columnIdx < 0 || columnIdx >= table.getColumns().size()) {
-            throw MysqlExecuteException.COLUMN_INDEX_OVER();
-        }
+    public ExecuteResult update(String columnName, Object newValue, Expr where) {
+        int columnIdx = MysqlUtil.columnName2Index(List.of(columnName), table.getColumns()).getFirst();
         Column column = table.getColumns().get(columnIdx);
         ColumnType columnType = column.getColumnType();
         if (columnType.refuse(newValue)) {
-            throw MysqlExecuteException.COLUMN_TYPE_NOT_MATCHED(column.getColumnName(), newValue);
+            return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
         }
         int count = 0;
         for (Row row : table.getRows()) {
-            if (ExprEvaluator.eval(where, row, table)) {
-                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, columnType);
-                count++;
+            if (where != null && !ExprEvaluator.eval(where, row, table)) {
+                continue;
             }
+            row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, columnType);
+            count++;
         }
         return ExecuteResult.UPDATE_SUCCESS(count);
     }
@@ -129,13 +112,7 @@ public class TableService {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
                 continue;
             }
-            Object[] projected = new Object[indices.size()];
-            for (int i = 0; i < indices.size(); i++) {
-                projected[i] = row.getValues()[indices.get(i)];
-            }
-            Row out = new Row();
-            out.setValues(projected);
-            result.add(out);
+            result.add(MysqlUtil.deepCopyProjectedRow(row, indices, columns));
         }
         return Collections.unmodifiableList(result);
     }

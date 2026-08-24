@@ -5,7 +5,6 @@ import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Row;
 import mysql.storage.Schema;
-import mysql.utils.MysqlUtil;
 
 import java.util.List;
 
@@ -42,28 +41,22 @@ public class Executor {
         };
     }
 
-    public ExecuteResult executeUpdate(UpdateStatement stmt) {
+    public ExecuteResult executeManipulate(ManipulateStatement stmt) {
         return switch (stmt) {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
                 yield context.getTableService().insert(s.values());
             }
-            case UpdateWhereStatement s -> {
+            case UpdateStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                int columnIdx = MysqlUtil.columnName2Index(List.of(s.columnName()), context.getCurrentTable().getColumns()).getFirst();
-                yield context.getTableService().updateWhere(s.where(), columnIdx, s.newValue());
+                yield context.getTableService().update(s.columnName(), s.newValue(), s.where());
             }
-            case DeleteAllStatement s -> {
+            case DeleteStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().deleteAll();
-            }
-            case DeleteWhereStatement s -> {
-                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
-                if (!r.isSuccess()) yield r;
-                yield context.getTableService().deleteWhere(s.where());
+                yield context.getTableService().delete(s.where());
             }
         };
     }

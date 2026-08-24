@@ -11,6 +11,9 @@ import java.util.*;
 public class MysqlUtil {
 
     public static Object deepCopyValue(Object value, ColumnType columnType) {
+        if (value == null) {
+            return null;
+        }
         return columnType.copyValue(value);
     }
 
@@ -41,15 +44,6 @@ public class MysqlUtil {
         return copy;
     }
 
-    public static Row copyRow(Row row) {
-        int len = row.getValues().length;
-        Object[] data = new Object[len];
-        System.arraycopy(row.getValues(), 0, data, 0, len);
-        Row newRow = new Row();
-        newRow.setValues(data);
-        return newRow;
-    }
-
     public static boolean compare(Object left, Object right, ColumnType columnType, CompareOp op) {
         if (left == null || right == null) {
             return switch (op) {
@@ -69,4 +63,14 @@ public class MysqlUtil {
         };
     }
 
+    public static Row deepCopyProjectedRow(Row row, List<Integer> indices, List<Column> columns) {
+        Object[] projected = new Object[indices.size()];
+        for (int i = 0; i < indices.size(); i++) {
+            int colIdx = indices.get(i);
+            projected[i] = deepCopyValue(row.getValues()[colIdx], columns.get(colIdx).getColumnType());
+        }
+        Row out = new Row();
+        out.setValues(projected);
+        return out;
+    }
 }

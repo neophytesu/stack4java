@@ -27,7 +27,7 @@ public class SqlParser {
         return context.getCurrentSchema().getSchemaName();
     }
 
-    public UpdateStatement parseDml(String sql) {
+    public ManipulateStatement parseDml(String sql) {
         TokenStream stream = getTokenStream(sql);
         TokenType type = stream.peek().type();
         return switch (type) {
@@ -61,30 +61,31 @@ public class SqlParser {
         };
     }
 
-    private UpdateStatement parseDelete(TokenStream stream) {
+    private ManipulateStatement parseDelete(TokenStream stream) {
         stream.expect(TokenType.DELETE);
         stream.expect(TokenType.FROM);
         String tableName = stream.expectIdentifier();
+        Expr where = null;
         if (stream.match(TokenType.WHERE)) {
-            Expr where = stream.parseWhere();
-            stream.expect(TokenType.EOF);
-            return new DeleteWhereStatement(currentSchemaName(), tableName, where);
+            where = stream.parseWhere();
         }
         stream.expect(TokenType.EOF);
-        return new DeleteAllStatement(currentSchemaName(), tableName);
+        return new DeleteStatement(currentSchemaName(), tableName, where);
     }
 
-    private UpdateStatement parseUpdate(TokenStream stream) {
+    private ManipulateStatement parseUpdate(TokenStream stream) {
         stream.expect(TokenType.UPDATE);
         String tableName = stream.expectIdentifier();
         stream.expect(TokenType.SET);
         String setColumn = stream.expectIdentifier();
         stream.expect(TokenType.EQ);
         Object newValue = stream.expectLiteralValue();
-        stream.expect(TokenType.WHERE);
-        Expr where = stream.parseWhere();
+        Expr where = null;
+        if (stream.match(TokenType.WHERE)) {
+            where = stream.parseWhere();
+        }
         stream.expect(TokenType.EOF);
-        return new UpdateWhereStatement(currentSchemaName(), tableName, setColumn, newValue, where);
+        return new UpdateStatement(currentSchemaName(), tableName, setColumn, newValue, where);
     }
 
 
@@ -114,7 +115,7 @@ public class SqlParser {
         return columns;
     }
 
-    private UpdateStatement parseInsert(TokenStream stream) {
+    private ManipulateStatement parseInsert(TokenStream stream) {
         stream.expect(TokenType.INSERT);
         stream.expect(TokenType.INTO);
         String tableName = stream.expectIdentifier();

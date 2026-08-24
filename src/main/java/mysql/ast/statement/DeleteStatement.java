@@ -2,11 +2,8 @@ package mysql.ast.statement;
 
 import mysql.ast.expr.Expr;
 
-public record UpdateWhereStatement(
+public record DeleteStatement(
         String schemaName,
         String tableName,
-        String columnName,
-        Object newValue,
         Expr where
-) implements UpdateStatement {
-}
+) implements ManipulateStatement {}

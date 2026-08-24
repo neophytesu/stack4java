@@ -2,5 +2,5 @@ package mysql.ast.statement;
 
 import java.util.List;
 
-public record InsertStatement(String schemaName, String tableName, List<Object> values) implements UpdateStatement {
+public record InsertStatement(String schemaName, String tableName, List<Object> values) implements ManipulateStatement {
 }
