@@ -1,6 +1,7 @@
 package mysql.utils;
 
 import mysql.ast.expr.CompareOp;
+import mysql.ast.statement.OrderByItem;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
@@ -72,5 +73,24 @@ public class MysqlUtil {
         Row out = new Row();
         out.setValues(projected);
         return out;
+    }
+
+    private static int compareOrdered(Object v1, Object v2, ColumnType columnType) {
+        if (v1 == null && v2 == null) return 0;
+        if (v1 == null) return -1;
+        if (v2 == null) return 1;
+        return Integer.compare(columnType.compare(v1, v2), 0);
+    }
+
+    public static int compareRowsOnTable(Row r1, Row r2, List<OrderByItem> orderByItems, List<Column> columns) {
+        for (OrderByItem item : orderByItems) {
+            int idx = columnName2Index(List.of(item.column()), columns).getFirst();
+            ColumnType type = columns.get(idx).getColumnType();
+            int cmp = compareOrdered(r1.getValues()[idx], r2.getValues()[idx], type);
+            if (cmp != 0) {
+                return item.ascending() ? cmp : -cmp;
+            }
+        }
+        return 0;
     }
 }

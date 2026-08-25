@@ -20,6 +20,8 @@ public enum TokenType {
     EQ, NE, LT, LE, GT, GE,
     IS, NULL,
     AND, OR, NOT,
+    ORDER, BY, ASC, DESC,
+    LIMIT, OFFSET,
     SEMICOLON,
 
     EOF

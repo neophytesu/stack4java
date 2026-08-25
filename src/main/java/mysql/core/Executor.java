@@ -1,6 +1,17 @@
 package mysql.core;
 
 import mysql.ast.statement.*;
+import mysql.ast.statement.CreateSchemaStatement;
+import mysql.ast.statement.CreateTableStatement;
+import mysql.ast.statement.UseTableStatement;
+import mysql.ast.statement.DeleteStatement;
+import mysql.ast.statement.InsertStatement;
+import mysql.ast.statement.UpdateStatement;
+import mysql.ast.statement.UseSchemaStatement;
+import mysql.ast.statement.SelectStatement;
+import mysql.ast.statement.DefineStatement;
+import mysql.ast.statement.ManipulateStatement;
+import mysql.ast.statement.QueryStatement;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Schema;
@@ -31,7 +42,7 @@ public class Executor {
                 if (!r.isSuccess()) {
                     yield SqlResult.of(r);
                 }
-                yield SqlResult.of(context.getTableService().select(s.columns(), s.where()));
+                yield SqlResult.of(context.getTableService().select(s.columns(), s.where(), s.orderByItems(), s.limit(), s.offset()));
             }
         };
     }
@@ -58,12 +69,12 @@ public class Executor {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().insert(s.values());
+                yield context.getTableService().insert(s.columnNames(), s.values());
             }
             case UpdateStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().update(s.columnName(), s.newValue(), s.where());
+                yield context.getTableService().update(s.assignments(), s.where());
             }
             case DeleteStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());

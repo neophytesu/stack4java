@@ -110,4 +110,12 @@ public class TokenStream {
             default -> throw new SqlParseException("期望比较运算符");
         };
     }
+
+    public Integer expectIntLiteral() {
+        Object value = expectLiteralValue();
+        if (!(value instanceof Integer n)) {
+            throw new SqlParseException("期望整数");
+        }
+        return n;
+    }
 }

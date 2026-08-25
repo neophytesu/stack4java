@@ -15,7 +15,9 @@ public class SqlLexerSupport {
             "INT", "VARCHAR", "BOOLEAN",
             "TRUE", "FALSE",
             "AND", "OR",
-            "IS", "NOT", "NULL"
+            "IS", "NOT", "NULL",
+            "ORDER", "BY", "ASC", "DESC",
+            "LIMIT", "OFFSET"
     );
 
 

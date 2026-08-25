@@ -4,6 +4,12 @@ import mysql.ast.expr.Expr;
 import mysql.ast.parser.token.TokenStream;
 import mysql.ast.parser.token.TokenType;
 import mysql.ast.statement.*;
+import mysql.ast.statement.CreateSchemaStatement;
+import mysql.ast.statement.CreateTableStatement;
+import mysql.ast.statement.SelectStatement;
+import mysql.ast.statement.DefineStatement;
+import mysql.ast.statement.ManipulateStatement;
+import mysql.ast.statement.QueryStatement;
 import mysql.core.EngineContext;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
@@ -11,6 +17,8 @@ import mysql.storage.Table;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static mysql.ast.parser.token.TokenType.*;
 
 public class SqlParser {
     private final EngineContext context;
@@ -63,89 +71,129 @@ public class SqlParser {
     }
 
     private ManipulateStatement parseDelete(TokenStream stream) {
-        stream.expect(TokenType.DELETE);
-        stream.expect(TokenType.FROM);
+        stream.expect(DELETE);
+        stream.expect(FROM);
         String tableName = stream.expectIdentifier();
         Expr where = null;
-        if (stream.match(TokenType.WHERE)) {
+        if (stream.match(WHERE)) {
             where = stream.parseWhere();
         }
-        stream.expect(TokenType.EOF);
+        stream.expect(EOF);
         return new DeleteStatement(currentSchemaName(), tableName, where);
     }
 
     private ManipulateStatement parseUpdate(TokenStream stream) {
-        stream.expect(TokenType.UPDATE);
+        stream.expect(UPDATE);
         String tableName = stream.expectIdentifier();
-        stream.expect(TokenType.SET);
-        String setColumn = stream.expectIdentifier();
-        stream.expect(TokenType.EQ);
-        Object newValue = stream.expectLiteralValue();
+        stream.expect(SET);
+        List<Assignment> assignments = new ArrayList<>();
+        do {
+            String setColumn = stream.expectIdentifier();
+            stream.expect(EQ);
+            Object newValue = stream.expectLiteralValue();
+            assignments.add(new Assignment(setColumn, newValue));
+        } while (stream.match(COMMA));
         Expr where = null;
-        if (stream.match(TokenType.WHERE)) {
+        if (stream.match(WHERE)) {
             where = stream.parseWhere();
         }
-        stream.expect(TokenType.EOF);
-        return new UpdateStatement(currentSchemaName(), tableName, setColumn, newValue, where);
+        stream.expect(EOF);
+        return new UpdateStatement(currentSchemaName(), tableName, assignments, where);
     }
 
 
     private QueryStatement parseSelect(TokenStream stream) {
-        stream.expect(TokenType.SELECT);
+        stream.expect(SELECT);
         List<String> columns;
-        if (stream.match(TokenType.STAR)) {
+        if (stream.match(STAR)) {
             columns = null;
         } else {
             columns = parseColumnList(stream);
         }
-        stream.expect(TokenType.FROM);
+        stream.expect(FROM);
         String tableName = stream.expectIdentifier();
         Expr where = null;
-        if (stream.match(TokenType.WHERE)) {
+        if (stream.match(WHERE)) {
             where = stream.parseWhere();
         }
-        stream.expect(TokenType.EOF);
-        return new SelectStatement(currentSchemaName(), tableName, columns, where);
+        List<OrderByItem> orderByItems = null;
+        if (stream.match(ORDER)) {
+            stream.expect(BY);
+            orderByItems = parseOrderByList(stream);
+        }
+        Integer limit = null;
+        Integer offset = null;
+        if (stream.match(LIMIT)) {
+            limit = stream.expectIntLiteral();
+            if (stream.match(OFFSET)) {
+                offset = stream.expectIntLiteral();
+            }
+        }
+        stream.expect(EOF);
+        return new SelectStatement(currentSchemaName(), tableName, columns, where, orderByItems, limit, offset);
+    }
+
+    private List<OrderByItem> parseOrderByList(TokenStream stream) {
+        List<OrderByItem> list = new ArrayList<>();
+        do {
+            String column = stream.expectIdentifier();
+            boolean asc = true;
+            if (stream.match(DESC)) {
+                asc = false;
+            } else {
+                stream.match(ASC);
+            }
+            list.add(new OrderByItem(column, asc));
+        } while (stream.match(COMMA));
+        return list;
     }
 
     private List<String> parseColumnList(TokenStream stream) {
         List<String> columns = new ArrayList<>();
         do {
             columns.add(stream.expectIdentifier());
-        } while (stream.match(TokenType.COMMA));
+        } while (stream.match(COMMA));
         return columns;
     }
 
     private ManipulateStatement parseInsert(TokenStream stream) {
-        stream.expect(TokenType.INSERT);
-        stream.expect(TokenType.INTO);
+        stream.expect(INSERT);
+        stream.expect(INTO);
         String tableName = stream.expectIdentifier();
-        stream.expect(TokenType.VALUES);
-        stream.expect(TokenType.LPAREN);
+        List<String> columnNames = null;
+        if (stream.match(LPAREN)) {
+            columnNames = parseColumnList(stream);
+            stream.expect(RPAREN);
+        }
+        stream.expect(VALUES);
+        stream.expect(LPAREN);
         List<Object> values = new ArrayList<>();
         do {
             values.add(stream.expectLiteralValue());
-        } while (stream.match(TokenType.COMMA));
-        stream.expect(TokenType.RPAREN);
-        stream.expect(TokenType.EOF);
-        return new InsertStatement(currentSchemaName(), tableName, values);
+        } while (stream.match(COMMA));
+        stream.expect(RPAREN);
+        stream.expect(EOF);
+        if (columnNames != null && columnNames.size() != values.size()) {
+            throw new SqlParseException("列数与值数不匹配");
+        }
+        return new InsertStatement(currentSchemaName(), tableName, columnNames, values);
     }
 
     private DefineStatement parseUse(TokenStream stream) {
-        stream.expect(TokenType.USE);
+        stream.expect(USE);
         String schemaName = stream.expectIdentifier();
-        stream.expect(TokenType.EOF);
+        stream.expect(EOF);
         return new UseSchemaStatement(schemaName);
     }
 
     private DefineStatement parseCreate(TokenStream stream) {
-        stream.expect(TokenType.CREATE);
-        if (stream.match(TokenType.SCHEMA)) {
+        stream.expect(CREATE);
+        if (stream.match(SCHEMA)) {
             String schemaName = stream.expectIdentifier();
-            stream.expect(TokenType.EOF);
+            stream.expect(EOF);
             return new CreateSchemaStatement(schemaName);
         }
-        if (stream.match(TokenType.TABLE)) {
+        if (stream.match(TABLE)) {
             return parseCreateTable(stream);
         }
         throw new SqlParseException("CREATE 后期望 SCHEMA 或 TABLE");
@@ -153,24 +201,24 @@ public class SqlParser {
 
     private DefineStatement parseCreateTable(TokenStream stream) {
         String tableName = stream.expectIdentifier();
-        stream.expect(TokenType.LPAREN);
+        stream.expect(LPAREN);
         List<Column> columns = new ArrayList<>();
         String primaryKeyColumn = null;
         do {
-            if (stream.check(TokenType.PRIMARY)) {
-                stream.expect(TokenType.PRIMARY);
-                stream.expect(TokenType.KEY);
-                stream.expect(TokenType.LPAREN);
+            if (stream.check(PRIMARY)) {
+                stream.expect(PRIMARY);
+                stream.expect(KEY);
+                stream.expect(LPAREN);
                 primaryKeyColumn = stream.expectIdentifier();
-                stream.expect(TokenType.RPAREN);
+                stream.expect(RPAREN);
                 break;
             }
             String columnName = stream.expectIdentifier();
             ColumnType type = parseColumnType(stream);
             columns.add(new Column(columnName, type));
-        } while (stream.match(TokenType.COMMA));
-        stream.expect(TokenType.RPAREN);
-        stream.expect(TokenType.EOF);
+        } while (stream.match(COMMA));
+        stream.expect(RPAREN);
+        stream.expect(EOF);
         if (primaryKeyColumn == null) {
             throw new SqlParseException("必须指定主键");
         }

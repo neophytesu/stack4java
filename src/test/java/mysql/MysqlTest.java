@@ -19,22 +19,23 @@ public class MysqlTest {
         String tableName = "user";
         System.out.println(sql);
         sqlEngine.execute(sql);
-        sql = "INSERT INTO user VALUES (1, 'Alice', 20)";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "INSERT INTO user VALUES (2, 'Bob', 30)";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "SELECT * FROM user WHERE age > 20 AND name = 'Bob'";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "UPDATE user SET age = 21 WHERE name = 'Alice'";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "DELETE FROM user WHERE age >= 25";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "SELECT id, name FROM user";
-        executeSql(sqlEngine, sql, tableName);
-        sql = "DELETE FROM user";
-        executeSql(sqlEngine, sql, tableName);
+        sql = """
+                INSERT INTO user VALUES (1, 'Alice', 20);
+                INSERT INTO user VALUES (2, 'Bob', 30);
+                SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL;
+                SELECT * FROM user WHERE age > 20 AND name = 'Bob';
+                UPDATE user SET age = 21 WHERE name = 'Alice';
+                DELETE FROM user WHERE age >= 25;
+                SELECT id, name FROM user;
+                DELETE FROM user""";
+        executeSqlList(sqlEngine, sql, tableName);
+    }
+
+    private static void executeSqlList(SqlEngine sqlEngine, String s, String tableName) {
+        String[] sqlList = s.split(";");
+        for (String sql : sqlList) {
+            executeSql(sqlEngine, sql, tableName);
+        }
     }
 
     private static void executeSql(SqlEngine sqlEngine, String sql, String tableName) {

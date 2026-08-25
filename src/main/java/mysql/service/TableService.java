@@ -3,6 +3,8 @@ package mysql.service;
 import lombok.Data;
 import mysql.ast.expr.Expr;
 import mysql.ast.expr.ExprEvaluator;
+import mysql.ast.statement.Assignment;
+import mysql.ast.statement.OrderByItem;
 import mysql.base.ExecuteResult;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
@@ -43,20 +45,40 @@ public class TableService {
         return ExecuteResult.SUCCESS();
     }
 
-    public ExecuteResult insert(List<Object> values) {
+    public ExecuteResult insert(List<String> columnNames, List<Object> values) {
         List<Column> columns = table.getColumns();
-        List<ColumnType> columnTypes = columns.stream().map(Column::getColumnType).toList();
-        if (columns.size() != values.size()) {
-            return ExecuteResult.COLUMN_COUNT_MISMATCH();
-        }
-        for (int i = 0; i < columns.size(); i++) {
-            Column column = columns.get(i);
-            if (column.getColumnType().refuse(values.get(i))) {
-                return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
-            }
-        }
+        List<ColumnType> allTypes = columns.stream().map(Column::getColumnType).toList();
         Row row = new Row();
-        row.setValues(MysqlUtil.deepCopy(values, columnTypes).toArray());
+        if (columnNames == null) {
+            if (columns.size() != values.size()) {
+                return ExecuteResult.COLUMN_COUNT_MISMATCH();
+            }
+            for (int i = 0; i < columns.size(); i++) {
+                Column column = columns.get(i);
+                if (column.getColumnType().refuse(values.get(i))) {
+                    return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
+                }
+            }
+            row.setValues(MysqlUtil.deepCopy(values, allTypes).toArray());
+        } else {
+            if (columnNames.size() != values.size()) {
+                return ExecuteResult.COLUMN_COUNT_MISMATCH();
+            }
+            Object[] rowData = new Object[columns.size()];
+            for (int i = 0; i < columns.size(); i++) {
+                rowData[i] = null;
+            }
+            for (int i = 0; i < columnNames.size(); i++) {
+                int idx = MysqlUtil.columnName2Index(List.of(columnNames.get(i)), columns).getFirst();
+                Column column = columns.get(idx);
+                Object value = values.get(i);
+                if (column.getColumnType().refuse(value)) {
+                    return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
+                }
+                rowData[idx] = MysqlUtil.deepCopyValue(value, column.getColumnType());
+            }
+            row.setValues(rowData);
+        }
         table.getRows().add(row);
         return ExecuteResult.INSERT_SUCCESS(1);
     }
@@ -78,25 +100,27 @@ public class TableService {
         return ExecuteResult.DELETE_SUCCESS(count);
     }
 
-    public ExecuteResult update(String columnName, Object newValue, Expr where) {
-        int columnIdx = MysqlUtil.columnName2Index(List.of(columnName), table.getColumns()).getFirst();
-        Column column = table.getColumns().get(columnIdx);
-        ColumnType columnType = column.getColumnType();
-        if (columnType.refuse(newValue)) {
-            return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
-        }
+    public ExecuteResult update(List<Assignment> assignments, Expr where) {
         int count = 0;
         for (Row row : table.getRows()) {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
                 continue;
             }
-            row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(newValue, columnType);
+            for (Assignment assignment : assignments) {
+                int columnIdx = MysqlUtil.columnName2Index(List.of(assignment.columnName()), table.getColumns()).getFirst();
+                Column column = table.getColumns().get(columnIdx);
+                ColumnType columnType = column.getColumnType();
+                if (columnType.refuse(assignment.newValue())) {
+                    return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
+                }
+                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(assignment.newValue(), columnType);
+            }
             count++;
         }
         return ExecuteResult.UPDATE_SUCCESS(count);
     }
 
-    public List<Row> select(List<String> columnNames, Expr where) {
+    public List<Row> select(List<String> columnNames, Expr where, List<OrderByItem> orderByItems, Integer limit, Integer offset) {
         List<Column> columns = table.getColumns();
         List<Integer> indices;
         if (columnNames == null) {
@@ -107,13 +131,28 @@ public class TableService {
         } else {
             indices = MysqlUtil.columnName2Index(columnNames, columns);
         }
-        List<Row> result = new ArrayList<>();
+        List<Row> matched = new ArrayList<>();
         for (Row row : table.getRows()) {
-            if (where != null && !ExprEvaluator.eval(where, row, table)) {
-                continue;
+            if (where == null || ExprEvaluator.eval(where, row, table)) {
+                matched.add(row);
             }
-            result.add(MysqlUtil.deepCopyProjectedRow(row, indices, columns));
         }
-        return Collections.unmodifiableList(result);
+        if (orderByItems != null) {
+            matched.sort((r1, r2) -> MysqlUtil.compareRowsOnTable(r1, r2, orderByItems, columns));
+        }
+        if (limit != null) {
+            int from = offset == null ? 0 : offset;
+            int to = Math.min(from + limit, matched.size());
+            if (from >= matched.size()) {
+                matched = List.of();
+            } else {
+                matched = new ArrayList<>(matched.subList(from, to));
+            }
+        }
+        List<Row> projected = new ArrayList<>(matched.size());
+        for (Row row : matched) {
+            projected.add(MysqlUtil.deepCopyProjectedRow(row, indices, columns));
+        }
+        return Collections.unmodifiableList(projected);
     }
 }
