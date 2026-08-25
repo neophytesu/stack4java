@@ -33,4 +33,8 @@ public record Token(TokenType type, String lexeme, Object value) {
     public static Token eof() {
         return new Token(TokenType.EOF, "", null);
     }
+
+    public static Token nullLiteral() {
+        return new Token(TokenType.NULL, "NULL", null);
+    }
 }

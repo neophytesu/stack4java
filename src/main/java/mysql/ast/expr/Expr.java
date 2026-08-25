@@ -1,4 +1,4 @@
 package mysql.ast.expr;
 
-public sealed interface Expr permits AndExpr, CompareExpr {
+public sealed interface Expr permits AndExpr, CompareExpr, IsNullExpr, OrExpr {
 }

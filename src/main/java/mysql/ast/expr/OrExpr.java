@@ -1,0 +1,4 @@
+package mysql.ast.expr;
+
+public record OrExpr(Expr left, Expr right) implements Expr {
+}

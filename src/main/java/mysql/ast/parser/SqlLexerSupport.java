@@ -14,7 +14,8 @@ public class SqlLexerSupport {
             "PRIMARY", "KEY",
             "INT", "VARCHAR", "BOOLEAN",
             "TRUE", "FALSE",
-            "AND"
+            "AND", "OR",
+            "IS", "NOT", "NULL"
     );
 
 
@@ -37,11 +38,16 @@ public class SqlLexerSupport {
         }
         String word = sql.substring(start, i);
         String upperWord = word.toUpperCase();
-        if ("TRUE".equals(upperWord)) {
-            return Token.booleanLiteral(true);
-        }
-        if ("FALSE".equals(upperWord)) {
-            return Token.booleanLiteral(false);
+        switch (upperWord) {
+            case "TRUE" -> {
+                return Token.booleanLiteral(true);
+            }
+            case "FALSE" -> {
+                return Token.booleanLiteral(false);
+            }
+            case "NULL" -> {
+                return Token.nullLiteral();
+            }
         }
         if (KEYWORDS.contains(upperWord)) {
             return Token.keyword(TokenType.valueOf(upperWord));

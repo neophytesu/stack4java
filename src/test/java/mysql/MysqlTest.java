@@ -23,7 +23,7 @@ public class MysqlTest {
         executeSql(sqlEngine, sql, tableName);
         sql = "INSERT INTO user VALUES (2, 'Bob', 30)";
         executeSql(sqlEngine, sql, tableName);
-        sql = "SELECT * FROM user WHERE name = 'Alice'";
+        sql = "SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL";
         executeSql(sqlEngine, sql, tableName);
         sql = "SELECT * FROM user WHERE age > 20 AND name = 'Bob'";
         executeSql(sqlEngine, sql, tableName);

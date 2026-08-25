@@ -12,8 +12,17 @@ public final class ExprEvaluator {
     public static boolean eval(Expr expr, Row row, Table table) {
         return switch (expr) {
             case AndExpr e -> eval(e.left(), row, table) && eval(e.right(), row, table);
+            case OrExpr e -> eval(e.left(), row, table) || eval(e.right(), row, table);
             case CompareExpr e -> evalCompare(e, row, table);
+            case IsNullExpr e -> evalIsNull(e, row, table);
         };
+    }
+
+    private static boolean evalIsNull(IsNullExpr e, Row row, Table table) {
+        int idx = columnIndex(table, e.column());
+        Object value = cell(row, idx);
+        boolean isNull = value == null;
+        return e.negated() != isNull;
     }
 
     private static int columnIndex(Table table, String columnName) {

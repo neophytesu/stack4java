@@ -18,7 +18,8 @@ public enum TokenType {
     COMMA,
     LPAREN, RPAREN,
     EQ, NE, LT, LE, GT, GE,
-    AND, OR,
+    IS, NULL,
+    AND, OR, NOT,
     SEMICOLON,
 
     EOF

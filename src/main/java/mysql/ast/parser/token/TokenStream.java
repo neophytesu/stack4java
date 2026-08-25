@@ -1,9 +1,6 @@
 package mysql.ast.parser.token;
 
-import mysql.ast.expr.AndExpr;
-import mysql.ast.expr.CompareExpr;
-import mysql.ast.expr.CompareOp;
-import mysql.ast.expr.Expr;
+import mysql.ast.expr.*;
 import mysql.ast.parser.SqlParseException;
 
 import java.util.List;
@@ -45,6 +42,10 @@ public class TokenStream {
         Token t = peek();
         return switch (t.type()) {
             case INT_LITERAL, STRING_LITERAL, BOOLEAN_LITERAL -> next().value();
+            case NULL -> {
+                next();
+                yield null;
+            }
             default -> throw new SqlParseException("期望字面量，实际是 " + t.type());
         };
     }
@@ -62,15 +63,37 @@ public class TokenStream {
     }
 
     public Expr parseWhere() {
-        Expr left = parseCompareExpr();
-        while (match(TokenType.AND)) {
-            left = new AndExpr(left, parseCompareExpr());
+        return parseOrExpr();
+    }
+
+    public Expr parseOrExpr() {
+        Expr left = parseAndExpr();
+        while (match(TokenType.OR)) {
+            left = new OrExpr(left, parseAndExpr());
         }
         return left;
     }
 
-    private Expr parseCompareExpr() {
+    public Expr parseAndExpr() {
+        Expr left = parsePrimaryExpr();
+        while (match(TokenType.AND)) {
+            left = new AndExpr(left, parsePrimaryExpr());
+        }
+        return left;
+    }
+
+    private Expr parsePrimaryExpr() {
+        if (match(TokenType.LPAREN)) {
+            Expr inner = parseOrExpr();
+            expect(TokenType.RPAREN);
+            return inner;
+        }
         String column = expectIdentifier();
+        if (match(TokenType.IS)) {
+            boolean negated = match(TokenType.NOT);
+            expect(TokenType.NULL);
+            return new IsNullExpr(column, negated);
+        }
         CompareOp op = parseCompareOp();
         Object value = expectLiteralValue();
         return new CompareExpr(column, op, value);
