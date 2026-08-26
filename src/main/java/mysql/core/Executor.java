@@ -69,7 +69,7 @@ public class Executor {
             case InsertStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
                 if (!r.isSuccess()) yield r;
-                yield context.getTableService().insert(s.columnNames(), s.values());
+                yield context.getTableService().insert(s.columnNames(), s.rows());
             }
             case UpdateStatement s -> {
                 ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());

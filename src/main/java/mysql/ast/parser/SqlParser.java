@@ -168,17 +168,30 @@ public class SqlParser {
             stream.expect(RPAREN);
         }
         stream.expect(VALUES);
-        stream.expect(LPAREN);
-        List<Object> values = new ArrayList<>();
+        List<List<Object>> rows = new ArrayList<>();
+        Integer expectedSize = columnNames != null ? columnNames.size() : null;
         do {
-            values.add(stream.expectLiteralValue());
+            stream.expect(LPAREN);
+            List<Object> values = new ArrayList<>();
+            do {
+                values.add(stream.expectLiteralValue());
+            } while (stream.match(COMMA));
+            stream.expect(RPAREN);
+            if (columnNames != null && columnNames.size() != values.size()) {
+                throw new SqlParseException("列数与值数不匹配");
+            }
+            if (!rows.isEmpty() && values.size() != rows.getFirst().size()) {
+                throw new SqlParseException("多行插入时，每行的值个数必须相同");
+            }
+            if (expectedSize == null) {
+                expectedSize = values.size();
+            } else if (columnNames == null && values.size() != expectedSize) {
+                throw new SqlParseException("多行插入时，每行的值个数必须相同");
+            }
+            rows.add(values);
         } while (stream.match(COMMA));
-        stream.expect(RPAREN);
         stream.expect(EOF);
-        if (columnNames != null && columnNames.size() != values.size()) {
-            throw new SqlParseException("列数与值数不匹配");
-        }
-        return new InsertStatement(currentSchemaName(), tableName, columnNames, values);
+        return new InsertStatement(currentSchemaName(), tableName, columnNames, rows);
     }
 
     private DefineStatement parseUse(TokenStream stream) {

@@ -12,10 +12,7 @@ import mysql.storage.Row;
 import mysql.storage.Table;
 import mysql.utils.MysqlUtil;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Data
 public class TableService {
@@ -46,11 +43,55 @@ public class TableService {
         return ExecuteResult.SUCCESS();
     }
 
-    public ExecuteResult insert(List<String> columnNames, List<Object> values) {
+    public ExecuteResult insert(List<String> columnNames, List<List<Object>> rows) {
+        List<Row> pending = new ArrayList<>(rows.size());
+        long next = table.getNextAutoIncrement();
+        for (List<Object> values : rows) {
+            Object[] rowData = new Object[table.getColumns().size()];
+            ExecuteResult r = buildRowData(columnNames, values, rowData);
+            if (!r.isSuccess()) {
+                return r;
+            }
+            next = fillAutoIncrement(rowData, next);
+            Row row = new Row();
+            row.setValues(rowData);
+            pending.add(row);
+        }
+        ExecuteResult pkCheck = checkPrimaryKeysForBatch(pending);
+        if (!pkCheck.isSuccess()) {
+            return pkCheck;
+        }
+        table.getRows().addAll(pending);
+        table.setNextAutoIncrement(next);
+        return ExecuteResult.INSERT_SUCCESS(pending.size());
+    }
+
+    private ExecuteResult checkPrimaryKeysForBatch(List<Row> pending) {
+        Integer pkIdx = table.getPrimaryIdx();
+        if (pkIdx == null) {
+            return ExecuteResult.SUCCESS();
+        }
+        Set<Object> batchPks = new HashSet<>();
+        for (Row row : pending) {
+            Object pk = row.getValues()[pkIdx];
+            if (pk == null) {
+                return ExecuteResult.PRIMARY_KEY_IS_NULL();
+            }
+            if (!batchPks.add(pk)) {
+                return ExecuteResult.PRIMARY_KEY_REPEATED();
+            }
+            for (Row existing : table.getRows()) {
+                if (Objects.equals(pk, existing.getValues()[pkIdx])) {
+                    return ExecuteResult.PRIMARY_KEY_REPEATED();
+                }
+            }
+        }
+        return ExecuteResult.SUCCESS();
+    }
+
+    private ExecuteResult buildRowData(List<String> columnNames, List<Object> values, Object[] rowData) {
         List<Column> columns = table.getColumns();
         List<ColumnType> allTypes = columns.stream().map(Column::getColumnType).toList();
-        Row row = new Row();
-        Object[] rowData;
         if (columnNames == null) {
             if (columns.size() != values.size()) {
                 return ExecuteResult.COLUMN_COUNT_MISMATCH();
@@ -61,12 +102,12 @@ public class TableService {
                     return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
                 }
             }
-            rowData = MysqlUtil.deepCopy(values, allTypes).toArray();
+            Object[] copied = MysqlUtil.deepCopy(values, allTypes).toArray();
+            System.arraycopy(copied, 0, rowData, 0, copied.length);
         } else {
             if (columnNames.size() != values.size()) {
                 return ExecuteResult.COLUMN_COUNT_MISMATCH();
             }
-            rowData = new Object[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
                 rowData[i] = null;
             }
@@ -80,34 +121,21 @@ public class TableService {
                 rowData[idx] = MysqlUtil.deepCopyValue(value, column.getColumnType());
             }
         }
-        row.setValues(rowData);
-        fillAutoIncrement(rowData);
-        ExecuteResult pkCheck = checkPrimaryKey(row);
-        if (!pkCheck.isSuccess()) {
-            return pkCheck;
-        }
-        table.getRows().add(row);
-        return ExecuteResult.INSERT_SUCCESS(1);
+        return ExecuteResult.SUCCESS();
     }
 
-    private void fillAutoIncrement(Object[] rowData) {
+    private long fillAutoIncrement(Object[] rowData, long next) {
         Integer pkIdx = table.getPrimaryIdx();
         Column pkColumn = table.getColumns().get(pkIdx);
         if (!pkColumn.isAutoIncrement()) {
-            return;
+            return next;
         }
         Object pk = rowData[pkIdx];
         if (pk != null) {
-            bumpAutoIncrementCounter(pk);
-            return;
+            return bumpNext(next, pk);
         }
-        long id = table.getNextAutoIncrement();
-        rowData[pkIdx] = (int) id;
-        table.setNextAutoIncrement(id + 1);
-    }
-
-    private ExecuteResult checkPrimaryKey(Row row) {
-        return checkPrimaryKey(row, null);
+        rowData[pkIdx] = (int) next;
+        return next + 1;
     }
 
     private ExecuteResult checkPrimaryKey(Row row, Row exclude) {
@@ -170,21 +198,20 @@ public class TableService {
                 if (!pkCheck.isSuccess()) {
                     return pkCheck;
                 }
-                bumpAutoIncrementCounter(row.getValues()[pkIdx]);
+                long updated = bumpNext(table.getNextAutoIncrement(), row.getValues()[pkIdx]);
+                table.setNextAutoIncrement(updated);
             }
             count++;
         }
         return ExecuteResult.UPDATE_SUCCESS(count);
     }
 
-    private void bumpAutoIncrementCounter(Object pkValue) {
+    private long bumpNext(long next, Object pkValue) {
         if (pkValue == null) {
-            return;
+            return next;
         }
         long explicit = ((Integer) pkValue).longValue();
-        if (explicit >= table.getNextAutoIncrement()) {
-            table.setNextAutoIncrement(explicit + 1);
-        }
+        return explicit >= next ? explicit + 1 : next;
     }
 
     public List<Row> select(List<String> columnNames, Expr where, List<OrderByItem> orderByItems, Integer limit, Integer offset) {
