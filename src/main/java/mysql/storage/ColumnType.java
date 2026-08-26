@@ -51,4 +51,8 @@ public enum ColumnType {
     }
 
     public abstract int compare(Object left, Object right);
+
+    public boolean isSupportedAutoIncrement() {
+        return this.javaType == Integer.class;
+    }
 }

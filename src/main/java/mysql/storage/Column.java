@@ -8,4 +8,5 @@ import lombok.Data;
 public class Column {
     private String columnName;
     private ColumnType columnType;
+    private boolean autoIncrement;
 }

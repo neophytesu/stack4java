@@ -15,13 +15,15 @@ public class MysqlTest {
         SqlEngine sqlEngine = new SqlEngine(catalog);
         sqlEngine.execute("CREATE SCHEMA myDb");
         sqlEngine.execute("USE myDb");
-        String sql = "CREATE TABLE user (id INT, name VARCHAR, age INT, PRIMARY KEY (id))";
+        String sql = "CREATE TABLE user (id INT AUTO_INCREMENT, name VARCHAR, age INT, PRIMARY KEY (id))";
         String tableName = "user";
         System.out.println(sql);
         sqlEngine.execute(sql);
         sql = """
                 INSERT INTO user VALUES (1, 'Alice', 20);
                 INSERT INTO user VALUES (2, 'Bob', 30);
+                INSERT INTO user VALUES (2, 'Dup', 25);
+                INSERT INTO user VALUES (NULL, 'Carol', 22);
                 SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL;
                 SELECT * FROM user WHERE age > 20 AND name = 'Bob';
                 UPDATE user SET age = 21 WHERE name = 'Alice';

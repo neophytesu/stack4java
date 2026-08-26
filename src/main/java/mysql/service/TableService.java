@@ -15,6 +15,7 @@ import mysql.utils.MysqlUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Data
 public class TableService {
@@ -49,6 +50,7 @@ public class TableService {
         List<Column> columns = table.getColumns();
         List<ColumnType> allTypes = columns.stream().map(Column::getColumnType).toList();
         Row row = new Row();
+        Object[] rowData;
         if (columnNames == null) {
             if (columns.size() != values.size()) {
                 return ExecuteResult.COLUMN_COUNT_MISMATCH();
@@ -59,12 +61,12 @@ public class TableService {
                     return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
                 }
             }
-            row.setValues(MysqlUtil.deepCopy(values, allTypes).toArray());
+            rowData = MysqlUtil.deepCopy(values, allTypes).toArray();
         } else {
             if (columnNames.size() != values.size()) {
                 return ExecuteResult.COLUMN_COUNT_MISMATCH();
             }
-            Object[] rowData = new Object[columns.size()];
+            rowData = new Object[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
                 rowData[i] = null;
             }
@@ -77,10 +79,55 @@ public class TableService {
                 }
                 rowData[idx] = MysqlUtil.deepCopyValue(value, column.getColumnType());
             }
-            row.setValues(rowData);
+        }
+        row.setValues(rowData);
+        fillAutoIncrement(rowData);
+        ExecuteResult pkCheck = checkPrimaryKey(row);
+        if (!pkCheck.isSuccess()) {
+            return pkCheck;
         }
         table.getRows().add(row);
         return ExecuteResult.INSERT_SUCCESS(1);
+    }
+
+    private void fillAutoIncrement(Object[] rowData) {
+        Integer pkIdx = table.getPrimaryIdx();
+        Column pkColumn = table.getColumns().get(pkIdx);
+        if (!pkColumn.isAutoIncrement()) {
+            return;
+        }
+        Object pk = rowData[pkIdx];
+        if (pk != null) {
+            bumpAutoIncrementCounter(pk);
+            return;
+        }
+        long id = table.getNextAutoIncrement();
+        rowData[pkIdx] = (int) id;
+        table.setNextAutoIncrement(id + 1);
+    }
+
+    private ExecuteResult checkPrimaryKey(Row row) {
+        return checkPrimaryKey(row, null);
+    }
+
+    private ExecuteResult checkPrimaryKey(Row row, Row exclude) {
+        Integer pkIdx = table.getPrimaryIdx();
+        if (pkIdx == null) {
+            return ExecuteResult.SUCCESS();
+        }
+        Object pk = row.getValues()[pkIdx];
+        if (pk == null) {
+            return ExecuteResult.PRIMARY_KEY_IS_NULL();
+        }
+        for (Row existing : table.getRows()) {
+            if (existing == exclude) {
+                continue;
+            }
+            if (Objects.equals(pk, existing.getValues()[pkIdx])) {
+                return ExecuteResult.PRIMARY_KEY_REPEATED();
+            }
+        }
+        return ExecuteResult.SUCCESS();
     }
 
     public ExecuteResult delete(Expr where) {
@@ -101,6 +148,9 @@ public class TableService {
     }
 
     public ExecuteResult update(List<Assignment> assignments, Expr where) {
+        Integer pkIdx = table.getPrimaryIdx();
+        String pkName = pkIdx != null ? table.getColumns().get(pkIdx).getColumnName() : null;
+        boolean touchesPk = pkName != null && assignments.stream().anyMatch(c -> c.columnName().equals(pkName));
         int count = 0;
         for (Row row : table.getRows()) {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
@@ -115,9 +165,26 @@ public class TableService {
                 }
                 row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(assignment.newValue(), columnType);
             }
+            if (touchesPk) {
+                ExecuteResult pkCheck = checkPrimaryKey(row, row);
+                if (!pkCheck.isSuccess()) {
+                    return pkCheck;
+                }
+                bumpAutoIncrementCounter(row.getValues()[pkIdx]);
+            }
             count++;
         }
         return ExecuteResult.UPDATE_SUCCESS(count);
+    }
+
+    private void bumpAutoIncrementCounter(Object pkValue) {
+        if (pkValue == null) {
+            return;
+        }
+        long explicit = ((Integer) pkValue).longValue();
+        if (explicit >= table.getNextAutoIncrement()) {
+            table.setNextAutoIncrement(explicit + 1);
+        }
     }
 
     public List<Row> select(List<String> columnNames, Expr where, List<OrderByItem> orderByItems, Integer limit, Integer offset) {

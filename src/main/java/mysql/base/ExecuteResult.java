@@ -72,4 +72,12 @@ public record ExecuteResult(Long code, String description) {
     public static ExecuteResult Schema_NOT_USED() {
         return new ExecuteResult(14L, "未选择模式");
     }
+
+    public static ExecuteResult PRIMARY_KEY_IS_NULL() {
+        return new ExecuteResult(15L, "主键为NULL");
+    }
+
+    public static ExecuteResult PRIMARY_KEY_REPEATED() {
+        return new ExecuteResult(16L, "主键重复");
+    }
 }

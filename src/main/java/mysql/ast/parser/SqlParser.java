@@ -16,7 +16,9 @@ import mysql.storage.ColumnType;
 import mysql.storage.Table;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static mysql.ast.parser.token.TokenType.*;
 
@@ -204,19 +206,32 @@ public class SqlParser {
         stream.expect(LPAREN);
         List<Column> columns = new ArrayList<>();
         String primaryKeyColumn = null;
+        Set<String> autoIncrementColumns = new HashSet<>();
         do {
             if (stream.check(PRIMARY)) {
                 stream.expect(PRIMARY);
                 stream.expect(KEY);
                 stream.expect(LPAREN);
                 primaryKeyColumn = stream.expectIdentifier();
+                autoIncrementColumns.remove(primaryKeyColumn);
                 stream.expect(RPAREN);
                 break;
             }
             String columnName = stream.expectIdentifier();
             ColumnType type = parseColumnType(stream);
-            columns.add(new Column(columnName, type));
+            if (stream.match(AUTO_INCREMENT)) {
+                if (!type.isSupportedAutoIncrement()) {
+                    throw new SqlParseException(columnName + "列的类型不支持自增");
+                }
+                autoIncrementColumns.add(columnName);
+                columns.add(new Column(columnName, type, true));
+            } else {
+                columns.add(new Column(columnName, type, false));
+            }
         } while (stream.match(COMMA));
+        if (!autoIncrementColumns.isEmpty()) {
+            throw new SqlParseException("只有主键列才能自增");
+        }
         stream.expect(RPAREN);
         stream.expect(EOF);
         if (primaryKeyColumn == null) {
