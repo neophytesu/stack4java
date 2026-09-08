@@ -1,6 +1,8 @@
 package spring;
 
 import http.HttpServer;
+import mysql.config.SqlEngineBootstrap;
+import mysql.core.SqlEngine;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
 import spring.aop.pointcut.LogMethodPointcut;
@@ -12,7 +14,7 @@ import spring.ioc.bean.lifecycle.BeanPostProcessor;
 import java.util.List;
 
 public class AppStarter {
-    static void main(String[] args) throws Exception {
+    static void main() throws Exception {
         AppConfig config = new AppConfig();
         DefaultBeanFactory factory = new DefaultBeanFactory();
         factory.addBeanPostProcessor(new BeanPostProcessor() {
@@ -29,6 +31,8 @@ public class AppStarter {
             }
         });
         factory.addAdvisors(List.of(new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor())));
+        SqlEngine sqlEngine= SqlEngineBootstrap.createAndInit();
+        factory.register(sqlEngine);
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }

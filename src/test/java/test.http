@@ -1,0 +1,20 @@
+### 查全部（初始为空数组）
+GET http://localhost:8080/api/users
+
+### 新增
+POST http://localhost:8080/api/users
+Content-Type: application/json
+
+{"name":"Alice","age":20}
+
+### 按 id 查
+GET http://localhost:8080/api/users/1
+
+### 更新
+PUT http://localhost:8080/api/users/1
+Content-Type: application/json
+
+{"name":"Alice2","age":21}
+
+### 删除
+DELETE http://localhost:8080/api/users/1

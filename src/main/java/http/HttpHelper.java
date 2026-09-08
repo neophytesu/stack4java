@@ -51,7 +51,7 @@ public class HttpHelper {
         }
         httpRequest.setHeaders(headers);
         parseCookies(httpRequest);
-        if (httpRequest.getMethod().equals("POST")) {
+        if (httpRequest.getMethod().equals("POST") || httpRequest.getMethod().equals("PUT")) {
             String contentLength = headers.get("content-length");
             int len;
             if (contentLength == null) {

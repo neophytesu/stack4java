@@ -5,7 +5,7 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Documented
-@RequestMapping("POST")
+@RequestMapping("DELETE")
 public @interface DeleteMapping {
     String value() default "";
 }
