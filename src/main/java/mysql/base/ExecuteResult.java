@@ -80,4 +80,9 @@ public record ExecuteResult(Long code, String description) {
     public static ExecuteResult PRIMARY_KEY_REPEATED() {
         return new ExecuteResult(16L, "主键重复");
     }
+
+    public static ExecuteResult PRIMARY_KEY_DROP_NOT_ALLOWED() {
+        return new ExecuteResult(17L, "不能删除主键");
+    }
+
 }

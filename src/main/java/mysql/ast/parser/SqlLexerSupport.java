@@ -10,14 +10,15 @@ public class SqlLexerSupport {
             "INSERT", "INTO", "VALUES",
             "SELECT", "FROM", "WHERE",
             "UPDATE", "SET", "DELETE",
-            "CREATE", "SCHEMA", "TABLE", "USE",
+            "CREATE", "SCHEMA", "TABLE", "USE", "DROP",
             "PRIMARY", "KEY", "AUTO_INCREMENT",
             "INT", "VARCHAR", "BOOLEAN",
             "TRUE", "FALSE",
             "AND", "OR",
             "IS", "NOT", "NULL",
             "ORDER", "BY", "ASC", "DESC",
-            "LIMIT", "OFFSET"
+            "LIMIT", "OFFSET",
+            "ALTER", "ADD", "COLUMN"
     );
 
 

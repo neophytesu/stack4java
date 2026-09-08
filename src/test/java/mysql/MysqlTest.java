@@ -27,6 +27,9 @@ public class MysqlTest {
                 UPDATE user SET age = 21 WHERE name = 'Alice';
                 DELETE FROM user WHERE age >= 25;
                 SELECT id, name FROM user;
+                ALTER TABLE user ADD COLUMN sex VARCHAR;
+                INSERT INTO user VALUES (7, 'M', 18, '男');
+                ALTER TABLE user DROP COLUMN sex;
                 DELETE FROM user""";
         executeSqlList(sqlEngine, sql, tableName);
     }

@@ -44,7 +44,7 @@ public class SqlParser {
         Statement stmt = switch (type) {
             case SELECT -> parseDql(stream, type);
             case INSERT, UPDATE, DELETE -> parseDml(stream, type);
-            case CREATE, USE -> parseDdl(stream, type);
+            case CREATE, USE, DROP, ALTER -> parseDdl(stream, type);
             default -> throw new SqlParseException("不支持: " + type);
         };
         int paramCount = stream.paramCount();
@@ -71,8 +71,42 @@ public class SqlParser {
         return switch (type) {
             case CREATE -> parseCreate(stream);
             case USE -> parseUse(stream);
+            case DROP -> parseDrop(stream);
+            case ALTER -> parseAlter(stream);
             default -> throw new SqlParseException("不支持: " + type);
         };
+    }
+
+    private DefineStatement parseAlter(TokenStream stream) {
+        stream.expect(ALTER);
+        stream.expect(TABLE);
+        String tableName = stream.expectIdentifier();
+        if (stream.match(ADD)) {
+            stream.expect(COLUMN);
+            String columnName = stream.expectIdentifier();
+            ColumnType columnType = parseColumnType(stream);
+            if (stream.match(AUTO_INCREMENT)) {
+                throw new SqlParseException("ADD COLUMN 不支持 AUTO_INCREMENT");
+            }
+            stream.expect(EOF);
+            Column column = new Column(columnName, columnType, false);
+            return new AddColumnStatement(currentSchemaName(), tableName, column);
+        }
+        if (stream.match(DROP)) {
+            stream.expect(COLUMN);
+            String columnName = stream.expectIdentifier();
+            stream.expect(EOF);
+            return new DropColumnStatement(currentSchemaName(), tableName, columnName);
+        }
+        throw new SqlParseException("ALTER TABLE 期望 ADD 或 DROP");
+    }
+
+    private DefineStatement parseDrop(TokenStream stream) {
+        stream.expect(DROP);
+        stream.expect(TABLE);
+        String tableName = stream.expectIdentifier();
+        stream.expect(EOF);
+        return new DropTableStatement(currentSchemaName(), tableName);
     }
 
     private ManipulateStatement parseDelete(TokenStream stream) {

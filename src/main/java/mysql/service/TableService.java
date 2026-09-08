@@ -30,16 +30,42 @@ public class TableService {
             return ExecuteResult.Column_EXIST();
         }
         columns.add(column);
+        for (Row row : table.getRows()) {
+            Object[] old = row.getValues();
+            Object[] neu = Arrays.copyOf(old, old.length + 1);
+            neu[old.length] = null;
+            row.setValues(neu);
+        }
         return ExecuteResult.SUCCESS();
     }
 
-    public ExecuteResult dropColumn(Column column) {
+    public ExecuteResult dropColumn(String columnName) {
         List<Column> columns = table.getColumns();
-        String columnName = column.getColumnName();
-        if (columns.stream().noneMatch(c -> c.getColumnName().equals(columnName))) {
-            return ExecuteResult.Column_NOT_EXIST(column.getColumnName());
+        int idx = -1;
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getColumnName().equals(columnName)) {
+                idx = i;
+                break;
+            }
         }
-        columns.removeIf(c -> c.getColumnName().equals(columnName));
+        if (idx < 0) {
+            return ExecuteResult.Column_NOT_EXIST(columnName);
+        }
+        Integer pkIdx = table.getPrimaryIdx();
+        if (pkIdx != null && pkIdx == idx) {
+            return ExecuteResult.PRIMARY_KEY_DROP_NOT_ALLOWED();
+        }
+        columns.remove(idx);
+        for (Row row : table.getRows()) {
+            Object[] old = row.getValues();
+            Object[] neu = new Object[old.length - 1];
+            System.arraycopy(old, 0, neu, 0, idx);
+            System.arraycopy(old, idx + 1, neu, idx, old.length - idx - 1);
+            row.setValues(neu);
+        }
+        if (pkIdx != null && pkIdx > idx) {
+            table.setPrimaryIdx(pkIdx - 1);
+        }
         return ExecuteResult.SUCCESS();
     }
 

@@ -15,6 +15,7 @@ import mysql.ast.statement.QueryStatement;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Schema;
+import mysql.storage.Table;
 
 public class Executor {
     private final EngineContext context;
@@ -60,6 +61,28 @@ public class Executor {
                 ExecuteResult r = context.useSchema(s.schemaName());
                 if (!r.isSuccess()) yield r;
                 yield context.getSchemaService().createTable(s.table());
+            }
+            case DropTableStatement s -> {
+                ExecuteResult r = context.useSchema(s.schemaName());
+                if (!r.isSuccess()) yield r;
+                Table t = new Table();
+                t.setTableName(s.tableName());
+                ExecuteResult dropped = context.getSchemaService().dropTable(t);
+                if (dropped.isSuccess() && context.getCurrentTable() != null && context.getCurrentTable().getTableName().equals(s.tableName())) {
+                    context.setCurrentTable(null);
+                    context.getTableService().useTable(null);
+                }
+                yield dropped;
+            }
+            case AddColumnStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().addColumn(s.column());
+            }
+            case DropColumnStatement s -> {
+                ExecuteResult r = ensureSchemaAndTable(s.schemaName(), s.tableName());
+                if (!r.isSuccess()) yield r;
+                yield context.getTableService().dropColumn(s.columnName());
             }
         };
     }

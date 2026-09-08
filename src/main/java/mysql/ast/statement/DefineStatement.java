@@ -1,8 +1,4 @@
 package mysql.ast.statement;
 
-public sealed interface DefineStatement extends Statement permits
-        UseSchemaStatement,
-        UseTableStatement,
-        CreateSchemaStatement,
-        CreateTableStatement {
+public sealed interface DefineStatement extends Statement permits AlterTableStatement, CreateSchemaStatement, CreateTableStatement, DropTableStatement, UseSchemaStatement, UseTableStatement {
 }
