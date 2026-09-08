@@ -1,7 +1,11 @@
 package mysql.core;
 
 import lombok.Getter;
+import mysql.ast.parser.ParsedSql;
+import mysql.ast.parser.SqlParseException;
 import mysql.ast.parser.SqlParser;
+import mysql.ast.statement.DefineStatement;
+import mysql.ast.statement.Statement;
 import mysql.storage.Catalog;
 
 public class SqlEngine {
@@ -17,6 +21,19 @@ public class SqlEngine {
     }
 
     public SqlResult execute(String sql) {
-        return executor.execute(parser.parse(sql));
+        ParsedSql parsedSql = parser.parse(sql);
+        if (parsedSql.paramCount() > 0) {
+            throw new SqlParseException("即时 execute 不支持 ?,请用prepare()");
+        }
+        return executor.execute(parsedSql.statement());
+    }
+
+    public SqlPreparedStatement prepare(String sql) {
+        ParsedSql parsed = parser.parse(sql);
+        Statement stmt = parsed.statement();
+        if (stmt instanceof DefineStatement) {
+            throw new SqlParseException("DDL 不支持预处理");
+        }
+        return new SqlPreparedStatement(stmt, parsed.paramCount(), executor);
     }
 }

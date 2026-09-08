@@ -83,6 +83,11 @@ public class SqlLexer {
                 pos = afterString(sql, pos);
                 continue;
             }
+            if (c == '?') {
+                tokens.add(Token.symbol(TokenType.PARAM, "?"));
+                pos++;
+                continue;
+            }
             if (Character.isDigit(c)) {
                 Token t = readNumber(sql, pos);
                 tokens.add(t);

@@ -37,15 +37,18 @@ public class SqlParser {
         return context.getCurrentSchema().getSchemaName();
     }
 
-    public Statement parse(String sql) {
+    public ParsedSql parse(String sql) {
         TokenStream stream = new TokenStream(lexer.tokenize(sql));
+        stream.resetParamIndex();
         TokenType type = stream.peek().type();
-        return switch (type) {
+        Statement stmt = switch (type) {
             case SELECT -> parseDql(stream, type);
             case INSERT, UPDATE, DELETE -> parseDml(stream, type);
             case CREATE, USE -> parseDdl(stream, type);
             default -> throw new SqlParseException("不支持: " + type);
         };
+        int paramCount = stream.paramCount();
+        return new ParsedSql(stmt, paramCount);
     }
 
     private ManipulateStatement parseDml(TokenStream stream, TokenType type) {

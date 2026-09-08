@@ -14,6 +14,7 @@ public enum TokenType {
     STRING_LITERAL,
     BOOLEAN_LITERAL,
 
+    PARAM,
     STAR,
     COMMA,
     LPAREN, RPAREN,

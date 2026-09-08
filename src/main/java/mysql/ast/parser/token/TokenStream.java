@@ -8,6 +8,19 @@ import java.util.List;
 public class TokenStream {
     private final List<Token> tokens;
     private int index = 0;
+    private int paramIndex = 0;
+
+    public void resetParamIndex() {
+        paramIndex = 0;
+    }
+
+    public int paramCount() {
+        return paramIndex;
+    }
+
+    private ParamPlaceholder nextParam() {
+        return new ParamPlaceholder(paramIndex++);
+    }
 
     public TokenStream(List<Token> tokens) {
         this.tokens = tokens;
@@ -46,7 +59,11 @@ public class TokenStream {
                 next();
                 yield null;
             }
-            default -> throw new SqlParseException("期望字面量，实际是 " + t.type());
+            case PARAM -> {
+                next();
+                yield nextParam();
+            }
+            default -> throw new SqlParseException("期望字面量或参数位符，实际是 " + t.type());
         };
     }
 
