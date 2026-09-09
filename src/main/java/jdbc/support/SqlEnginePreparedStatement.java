@@ -15,10 +15,12 @@ public class SqlEnginePreparedStatement implements PreparedStatement {
     private final SqlPreparedStatement delegate;
     private final SqlEngine sqlEngine;
     private boolean closed;
+    private final SqlEngineConnection connection;
 
-    public SqlEnginePreparedStatement(SqlPreparedStatement delegate, SqlEngine sqlEngine) {
+    public SqlEnginePreparedStatement(SqlPreparedStatement delegate, SqlEngine sqlEngine, SqlEngineConnection connection) {
         this.delegate = delegate;
         this.sqlEngine = sqlEngine;
+        this.connection = connection;
     }
 
     @Override
@@ -44,6 +46,7 @@ public class SqlEnginePreparedStatement implements PreparedStatement {
     @Override
     public ResultSet executeQuery() {
         checkOpen();
+        connection.ensureTransactionStarted();
         SqlResult result = delegate.execute();
         if (!result.isSuccess()) {
             throw new JdbcException(result.executeResult().description());
@@ -71,6 +74,7 @@ public class SqlEnginePreparedStatement implements PreparedStatement {
     @Override
     public int executeUpdate() {
         checkOpen();
+        connection.ensureTransactionStarted();
         SqlResult result = delegate.execute();
         if (!result.isSuccess()) {
             throw new JdbcException(result.executeResult().description());

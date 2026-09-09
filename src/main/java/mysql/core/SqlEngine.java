@@ -52,4 +52,7 @@ public class SqlEngine {
         transactionManager.rollback(context);
     }
 
+    public boolean inTransaction() {
+        return transactionManager.isActive(context);
+    }
 }
