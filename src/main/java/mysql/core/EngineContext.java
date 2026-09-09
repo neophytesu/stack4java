@@ -2,6 +2,7 @@ package mysql.core;
 
 import lombok.Data;
 import mysql.base.ExecuteResult;
+import mysql.core.transaction.Transaction;
 import mysql.service.CatalogService;
 import mysql.service.SchemaService;
 import mysql.service.TableService;
@@ -12,6 +13,15 @@ import mysql.storage.Table;
 @Data
 public class EngineContext {
     private Catalog catalog;
+    private Transaction activeTransaction;
+
+    public void rebindAfterStorageChange() {
+        catalogService.useCatalog(catalog);
+        if (currentSchema != null) {
+            String schemaName = currentSchema.getSchemaName();
+            useSchema(schemaName);
+        }
+    }
 
     public EngineContext(Catalog catalog) {
         this.catalog = catalog;

@@ -1,26 +1,16 @@
 package mysql;
 
+import mysql.config.SqlEngineBootstrap;
 import mysql.core.SqlEngine;
 import mysql.core.SqlPreparedStatement;
 import mysql.core.SqlResult;
-import mysql.storage.Catalog;
-
-import java.util.HashMap;
 
 public class MysqlTest {
 
     static void main() {
-        Catalog catalog = new Catalog();
-        catalog.setName("default");
-        catalog.setSchemas(new HashMap<>());
-        SqlEngine sqlEngine = new SqlEngine(catalog);
-        sqlEngine.execute("CREATE SCHEMA myDb");
-        sqlEngine.execute("USE myDb");
-        String sql = "CREATE TABLE user (id INT AUTO_INCREMENT, name VARCHAR, age INT, PRIMARY KEY (id))";
+        SqlEngine sqlEngine = SqlEngineBootstrap.createAndInit();
         String tableName = "user";
-        System.out.println(sql);
-        sqlEngine.execute(sql);
-        sql = """
+        String sql = """
                 INSERT INTO user VALUES (1, 'Alice', 20),(2, 'Bob', 30),(3, 'Dup', 25);
                 INSERT INTO user VALUES (NULL, 'Carol', 22);
                 SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL;
@@ -42,6 +32,15 @@ public class MysqlTest {
         ps.setInt(1, 1);
         SqlResult result = ps.execute();
         System.out.println(result.toString());
+        sql = "SELECT * FROM user";
+        sqlEngine.beginTransaction();
+        sqlEngine.execute("INSERT INTO user VALUES (NULL, 'Carol', 22);");
+        sqlEngine.rollback();
+        executeSql(sqlEngine, sql, tableName);
+        sqlEngine.beginTransaction();
+        sqlEngine.execute("INSERT INTO user VALUES (NULL, 'Dup', 25);");
+        sqlEngine.commit();
+        executeSqlList(sqlEngine, sql, tableName);
     }
 
     private static void executeSqlList(SqlEngine sqlEngine, String s, String tableName) {
