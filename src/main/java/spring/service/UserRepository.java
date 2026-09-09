@@ -1,74 +1,91 @@
 package spring.service;
 
+import jdbc.Connection;
+import jdbc.DataSource;
+import jdbc.PreparedStatement;
+import jdbc.ResultSet;
 import mvc.dto.User;
-import mysql.core.SqlEngine;
-import mysql.core.SqlPreparedStatement;
-import mysql.core.SqlResult;
-import mysql.storage.Row;
 import spring.di.annotation.Autowired;
 import spring.service.annotations.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class UserRepository {
     @Autowired
-    private SqlEngine sqlEngine;
+    private DataSource dataSource;
 
     public List<User> findAll() {
-        SqlResult result = sqlEngine.execute("SELECT * FROM user");
-        checkSuccess(result);
-        return result.rows().stream().map(this::toUser).toList();
+        List<User> users = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM user")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+            }
+        }
+        return users;
+    }
+
+    private User mapRow(ResultSet rs) {
+        return new User(rs.getInt("id"), rs.getString("name"), rs.getInt("age"));
     }
 
     public Optional<User> findById(int id) {
-        SqlPreparedStatement prepare = sqlEngine.prepare("SELECT * FROM user WHERE id = ?");
-        prepare.setInt(1, id);
-        SqlResult result = prepare.execute();
-        checkSuccess(result);
-        if (result.rows().isEmpty()) {
-            return Optional.empty();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT * FROM user WHERE id = ?")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapRow(rs));
+            }
         }
-        return Optional.of(toUser(result.rows().getFirst()));
     }
 
     public User insert(String name, int age) {
-        SqlPreparedStatement prepare = sqlEngine.prepare("INSERT INTO user (name, age) VALUES (?, ?)");
-        prepare.setString(1, name);
-        prepare.setInt(2, age);
-        SqlResult r = prepare.execute();
-        if (r.isSuccess()) {
-            SqlResult result = sqlEngine.execute("SELECT * FROM user ORDER BY id DESC LIMIT 1");
-            return toUser(result.rows().getFirst());
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("INSERT INTO user (name, age) VALUES (?, ?)")) {
+            ps.setString(1, name);
+            ps.setInt(2, age);
+            int count = ps.executeUpdate();
+            if (count > 0) {
+                try (Connection c = dataSource.getConnection()) {
+                    PreparedStatement p = c.prepareStatement("SELECT * FROM user ORDER BY id DESC LIMIT 1");
+                    try (ResultSet rs = p.executeQuery()) {
+                        if (!rs.next()) {
+                            return null;
+                        }
+                        return mapRow(rs);
+                    }
+                }
+            }
         }
+
         return null;
     }
 
     public boolean update(int id, String name, Integer age) {
-        SqlPreparedStatement prepare = sqlEngine.prepare("UPDATE user SET name = ? ',age = ? WHERE id = ?)");
-        prepare.setString(1, name);
-        prepare.setInt(2, age);
-        prepare.setInt(3, id);
-        SqlResult result = prepare.execute();
-        return result.isSuccess();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE user SET name = ? ,age = ? WHERE id = ?")) {
+            ps.setString(1, name);
+            ps.setInt(2, age);
+            ps.setInt(3, id);
+            int count = ps.executeUpdate();
+            return count > 0;
+        }
     }
 
     public boolean deleteById(int id) {
-        SqlPreparedStatement prepare = sqlEngine.prepare("DELETE FROM user WHERE id = ?");
-        prepare.setInt(1, id);
-        SqlResult result = prepare.execute();
-        return result.isSuccess();
-    }
-
-    private User toUser(Row row) {
-        Object[] v = row.getValues();
-        return new User((Integer) v[0], (String) v[1], (Integer) v[2]);
-    }
-
-    private void checkSuccess(SqlResult result) {
-        if (!result.isSuccess()) {
-            throw new RuntimeException(result.executeResult().description());
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM user WHERE id = ?")) {
+            ps.setInt(1, id);
+            int count = ps.executeUpdate();
+            return count > 0;
         }
     }
 

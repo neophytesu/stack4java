@@ -1,6 +1,7 @@
 package spring;
 
 import http.HttpServer;
+import jdbc.support.SqlEngineDataSource;
 import mysql.config.SqlEngineBootstrap;
 import mysql.core.SqlEngine;
 import spring.aop.advisor.SimpleAdvisor;
@@ -33,6 +34,7 @@ public class AppStarter {
         factory.addAdvisors(List.of(new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor())));
         SqlEngine sqlEngine= SqlEngineBootstrap.createAndInit();
         factory.register(sqlEngine);
+        factory.register(new SqlEngineDataSource(sqlEngine));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }

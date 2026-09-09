@@ -2,7 +2,11 @@ package mysql.base;
 
 import java.util.List;
 
-public record ExecuteResult(Long code, String description) {
+public record ExecuteResult(Long code, String description, Integer affectedRows) {
+
+    public ExecuteResult(Long code, String description) {
+        this(code, description, 0);
+    }
 
     public static ExecuteResult convertException(MysqlExecuteException e) {
         return new ExecuteResult(e.getCode(), e.getDescription());
@@ -54,15 +58,15 @@ public record ExecuteResult(Long code, String description) {
     }
 
     public static ExecuteResult UPDATE_SUCCESS(Integer num) {
-        return new ExecuteResult(10L, "更新成功，更新" + num + "行");
+        return new ExecuteResult(10L, "更新成功，更新" + num + "行", num);
     }
 
     public static ExecuteResult DELETE_SUCCESS(Integer num) {
-        return new ExecuteResult(11L, "删除成功，删除" + num + "行");
+        return new ExecuteResult(11L, "删除成功，删除" + num + "行", num);
     }
 
     public static ExecuteResult INSERT_SUCCESS(Integer num) {
-        return new ExecuteResult(12L, "插入成功，插入" + num + "行");
+        return new ExecuteResult(12L, "插入成功，插入" + num + "行", num);
     }
 
     public static ExecuteResult Catalog_NOT_EXIST() {
