@@ -10,17 +10,25 @@ public class SqlPreparedStatement {
     private final int paramCount;
     private final Executor executor;
     private final Object[] params;
+    private final boolean[] bound;
 
     public SqlPreparedStatement(Statement template, int paramCount, Executor executor) {
         this.template = template;
         this.paramCount = paramCount;
         this.executor = executor;
         this.params = new Object[paramCount];
+        this.bound = new boolean[paramCount];
     }
 
     public void setObject(int index, Object value) {
         checkIndex(index);
-        params[index - 1] = value;
+        int i = index - 1;
+        params[i] = value;
+        bound[i] = true;
+    }
+
+    public void setNull(int index) {
+        setObject(index, null);
     }
 
     private void checkIndex(int index) {
@@ -45,11 +53,12 @@ public class SqlPreparedStatement {
 
     public void clearParameters() {
         Arrays.fill(params, null);
+        Arrays.fill(bound, false);
     }
 
     private void checkAllBound() {
         for (int i = 0; i < paramCount; i++) {
-            if (params[i] == null) {
+            if (!bound[i]) {
                 throw new SqlParseException("参数 " + (i + 1) + " 未绑定");
             }
         }

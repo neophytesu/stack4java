@@ -38,7 +38,9 @@ public class PlaceholderResolver {
 
     private static Statement resolveSelect(SelectStatement s, Object[] params) {
         Expr where = s.where() == null ? null : resolveExpr(s.where(), params);
-        return new SelectStatement(s.schemaName(), s.tableName(), s.columns(), where, s.orderByItems(), s.limit(), s.offset());
+        Integer limit = resolveIntLimit(s.limit(), params);
+        Integer offset = resolveIntLimit(s.offset(), params);
+        return new SelectStatement(s.schemaName(), s.tableName(), s.columns(), where, s.orderByItems(), limit, offset);
     }
 
     private static Object resolveValue(Object value, Object[] params) {
@@ -57,7 +59,23 @@ public class PlaceholderResolver {
             case AndExpr e -> new AndExpr(resolveExpr(e.left(), params), resolveExpr(e.right(), params));
             case OrExpr e -> new OrExpr(resolveExpr(e.left(), params), resolveExpr(e.right(), params));
             case IsNullExpr e -> e;
-            default -> throw new SqlParseException("未知表达式：" + expr);
         };
+    }
+
+    private static Integer resolveIntLimit(Object value, Object[] params) {
+        if (value == null) {
+            return null;
+        }
+        Object resolved = resolveValue(value, params);
+        if (resolved == null) {
+            throw new SqlParseException("LIMIT/OFFSET 不能为 NULL");
+        }
+        if (!(resolved instanceof Integer n)) {
+            throw new SqlParseException("LIMIT/OFFSET 必须是整数");
+        }
+        if (n < 0) {
+            throw new SqlParseException("LIMIT/OFFSET 不能为负数");
+        }
+        return n;
     }
 }

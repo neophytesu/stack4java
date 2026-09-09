@@ -160,12 +160,12 @@ public class SqlParser {
             stream.expect(BY);
             orderByItems = parseOrderByList(stream);
         }
-        Integer limit = null;
-        Integer offset = null;
+        Object limit = null;
+        Object offset = null;
         if (stream.match(LIMIT)) {
-            limit = stream.expectIntLiteral();
+            limit = stream.expectIntValue();
             if (stream.match(OFFSET)) {
-                offset = stream.expectIntLiteral();
+                offset = stream.expectIntValue();
             }
         }
         stream.expect(EOF);

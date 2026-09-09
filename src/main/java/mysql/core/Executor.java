@@ -1,5 +1,7 @@
 package mysql.core;
 
+import mysql.ast.expr.ParamPlaceholder;
+import mysql.ast.parser.SqlParseException;
 import mysql.ast.statement.*;
 import mysql.ast.statement.CreateSchemaStatement;
 import mysql.ast.statement.CreateTableStatement;
@@ -43,9 +45,22 @@ public class Executor {
                 if (!r.isSuccess()) {
                     yield SqlResult.of(r);
                 }
-                yield SqlResult.of(context.getTableService().select(s.columns(), s.where(), s.orderByItems(), s.limit(), s.offset()));
+                yield SqlResult.of(context.getTableService().select(s.columns(), s.where(), s.orderByItems(), toInteger(s.limit()), toInteger(s.offset())));
             }
         };
+    }
+
+    private Integer toInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Integer n) {
+            return n;
+        }
+        if (value instanceof ParamPlaceholder) {
+            throw new SqlParseException("LIMIT/OFFSET 占位符未解析");
+        }
+        throw new SqlParseException("非法 LIMIT/OFFSET 值");
     }
 
     private ExecuteResult executeDefine(DefineStatement stmt) {

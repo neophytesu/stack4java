@@ -1,6 +1,7 @@
 package mysql;
 
 import mysql.core.SqlEngine;
+import mysql.core.SqlPreparedStatement;
 import mysql.core.SqlResult;
 import mysql.storage.Catalog;
 
@@ -32,6 +33,15 @@ public class MysqlTest {
                 ALTER TABLE user DROP COLUMN sex;
                 DELETE FROM user""";
         executeSqlList(sqlEngine, sql, tableName);
+        SqlPreparedStatement ps = sqlEngine.prepare("INSERT INTO user VALUES (? ,? ,?)");
+        ps.setInt(1, 1);
+        ps.setString(2, "Alice");
+        ps.setInt(3, 20);
+        ps.execute();
+        ps = sqlEngine.prepare("SELECT * FROM user ORDER BY age DESC LIMIT ?");
+        ps.setInt(1, 1);
+        SqlResult result = ps.execute();
+        System.out.println(result.toString());
     }
 
     private static void executeSqlList(SqlEngine sqlEngine, String s, String tableName) {

@@ -128,11 +128,17 @@ public class TokenStream {
         };
     }
 
-    public Integer expectIntLiteral() {
+    public Object expectIntValue() {
         Object value = expectLiteralValue();
-        if (!(value instanceof Integer n)) {
-            throw new SqlParseException("期望整数");
+        if (value instanceof Integer) {
+            return value;
         }
-        return n;
+        if (value instanceof ParamPlaceholder) {
+            return value;
+        }
+        if (value == null) {
+            throw new SqlParseException("LIMIT/OFFSET 不能为 NULL");
+        }
+        throw new SqlParseException("LIMIT/OFFSET 期望整数或 ?");
     }
 }
