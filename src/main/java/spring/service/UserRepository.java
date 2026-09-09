@@ -2,6 +2,7 @@ package spring.service;
 
 import mvc.dto.User;
 import mysql.core.SqlEngine;
+import mysql.core.SqlPreparedStatement;
 import mysql.core.SqlResult;
 import mysql.storage.Row;
 import spring.di.annotation.Autowired;
@@ -22,7 +23,9 @@ public class UserRepository {
     }
 
     public Optional<User> findById(int id) {
-        SqlResult result = sqlEngine.execute("SELECT * FROM user WHERE id = " + id);
+        SqlPreparedStatement prepare = sqlEngine.prepare("SELECT * FROM user WHERE id = ?");
+        prepare.setInt(1, id);
+        SqlResult result = prepare.execute();
         checkSuccess(result);
         if (result.rows().isEmpty()) {
             return Optional.empty();
@@ -31,8 +34,11 @@ public class UserRepository {
     }
 
     public User insert(String name, int age) {
-        SqlResult r = sqlEngine.execute("INSERT INTO user (name, age) VALUES ('" + escape(name) + "'," + age + ")");
-        if (r.isSuccess()){
+        SqlPreparedStatement prepare = sqlEngine.prepare("INSERT INTO user (name, age) VALUES (?, ?)");
+        prepare.setString(1, name);
+        prepare.setInt(2, age);
+        SqlResult r = prepare.execute();
+        if (r.isSuccess()) {
             SqlResult result = sqlEngine.execute("SELECT * FROM user ORDER BY id DESC LIMIT 1");
             return toUser(result.rows().getFirst());
         }
@@ -40,12 +46,18 @@ public class UserRepository {
     }
 
     public boolean update(int id, String name, Integer age) {
-        SqlResult result = sqlEngine.execute("UPDATE user SET name = '" + escape(name) + "',age = " + age + " WHERE id = " + id);
+        SqlPreparedStatement prepare = sqlEngine.prepare("UPDATE user SET name = ? ',age = ? WHERE id = ?)");
+        prepare.setString(1, name);
+        prepare.setInt(2, age);
+        prepare.setInt(3, id);
+        SqlResult result = prepare.execute();
         return result.isSuccess();
     }
 
     public boolean deleteById(int id) {
-        SqlResult result = sqlEngine.execute("DELETE FROM user WHERE id = " + id);
+        SqlPreparedStatement prepare = sqlEngine.prepare("DELETE FROM user WHERE id = ?");
+        prepare.setInt(1, id);
+        SqlResult result = prepare.execute();
         return result.isSuccess();
     }
 
@@ -60,7 +72,4 @@ public class UserRepository {
         }
     }
 
-    private String escape(String s) {
-        return s.replace("'", "''");
-    }
 }
