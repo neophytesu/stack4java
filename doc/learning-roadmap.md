@@ -9,33 +9,59 @@
 | HTTP | `http` | 自研 HTTP Server、Servlet、Filter、Session、RequestDispatcher |
 | MVC | `mvc` | DispatcherServlet、路由注解、参数绑定、视图解析、全局异常 |
 | Spring | `spring` | IoC/DI、AOP（ByteBuddy）、Bean 生命周期、ClassScanner |
-| MySQL | `mysql` | 词法/语法解析、AST、Executor、内存 Catalog/Schema/Table |
+| MySQL | `mysql` | 词法/语法解析、AST、Executor、DML/DQL/DDL、预处理 `?`、内存 Catalog/Schema/Table |
+| JDBC | `jdbc` | DataSource / Connection / PreparedStatement / ResultSet（后端挂 SqlEngine） |
 
-`AppStarter` 已将 HTTP + Spring + MVC 串联，可在 8080 端口启动 Web 应用。
+`AppStarter` 已将 HTTP + Spring + MVC + JDBC + SqlEngine 串联；`UserRepository` 经 JDBC 访问内存引擎，可在 8080 跑 User CRUD API。
 
 `mysql` 模块是**内存 SQL 引擎**（Lexer → Parser → AST → Executor），不是连接真实 MySQL 的 JDBC 客户端。
+
+**事务**：引擎层 `begin/commit/rollback` 尚未实现 → 见 [mini-MySQL 事务路线（V1→V2→V3）](./mini-mysql-transaction-roadmap.md)。
 
 ---
 
 ## 总体路线
 
 ```mermaid
-flowchart LR
-    A[现有模块串联<br/>User CRUD API] --> B[jdbc 模块<br/>API + SqlEngine 后端]
-    B --> C[连接池 + 事务]
-    C --> D[JdbcTemplate]
-    D --> E[迷你 MyBatis<br/>Mapper 代理]
-    E --> F[可选: 真实 MySQL 驱动<br/>动态 SQL / 缓存]
+flowchart TB
+    subgraph done["已完成 / 进行中"]
+        A[User CRUD API<br/>Repository → JDBC → SqlEngine]
+    end
+    subgraph jdbc_tx["JDBC 层"]
+        B[2.3 连接池]
+        C[2.4 事务边界<br/>@Transactional]
+    end
+    subgraph engine_tx["引擎事务 V1→V3"]
+        T1[V1 快照]
+        T2[V2 Undo]
+        T3[V3 Savepoint / MVCC / Redo]
+    end
+    subgraph upper["上层数据访问"]
+        D[JdbcTemplate]
+        E[迷你 MyBatis]
+    end
+    subgraph opt["可选"]
+        F[真实 MySQL 驱动]
+    end
+    A --> T1
+    T1 --> C
+    C --> B
+    T1 --> T2
+    T2 --> T3
+    B --> D
+    T2 --> D
+    D --> E
+    E --> F
 ```
+
+**推荐主轴**：先把 **引擎事务 V1 + JDBC 衔接** 跑通，再做 **V2 Undo** 与 **连接池**，然后 **JdbcTemplate → MyBatis**；**V3（Savepoint / MVCC / Redo）** 与 MyBatis 可并行，但建议在 V2 稳定后做 MVCC/Redo。
 
 ---
 
-## 第一步：把现有模块串成闭环（优先）
-
-在写 JDBC / MyBatis 之前，先用已有组件做一个端到端 Demo：
+## 第一步：Web 栈闭环（已基本完成）
 
 ```
-HTTP 请求 → Controller → Service → Repository → SqlEngine
+HTTP 请求 → Controller → Service → Repository → JDBC → SqlEngine
 ```
 
 ### 示例：User CRUD API
@@ -47,27 +73,18 @@ HTTP 请求 → Controller → Service → Repository → SqlEngine
 | `PUT /api/users/{id}` | `UPDATE user SET ... WHERE id = ?` |
 | `DELETE /api/users/{id}` | `DELETE FROM user WHERE id = ?` |
 
-### 集成要点
+### 后续可加强
 
-- 将 `SqlEngine` 注册为 `DefaultBeanFactory` 中的单例 Bean
-- Repository 通过 `@Autowired` 注入 `SqlEngine`
-- Controller 调用 Service，Service 调用 Repository
-
-### 为什么先做这步
-
-1. 验证 HTTP / MVC / Spring / SQL 四层能协同工作
-2. 提前暴露真实问题：Bean 管理、事务边界、异常如何返回 JSON
-3. 为后续 JDBC、MyBatis 提供明确对照——「以前 Repository 直接调 SqlEngine，现在换成 SqlSession」
-
-**预估工作量：** 1–2 天
+- Repository / API 的自动化测试与断言
+- 统一异常 → JSON（已有 `GlobalExceptionHandler` 可扩展）
 
 ---
 
-## 第二步：实现 `jdbc` 模块
+## 第二步：JDBC 深化 + 引擎事务
 
-### 2.1 定义 JDBC 风格 API
+> 引擎事务完整分版说明：[mini-mysql-transaction-roadmap.md](./mini-mysql-transaction-roadmap.md)
 
-建议目录结构：
+### 2.1 JDBC API（已有）
 
 ```
 jdbc/
@@ -75,49 +92,62 @@ jdbc/
   ├── Connection.java
   ├── PreparedStatement.java
   ├── ResultSet.java
-  └── RowMapper.java          // 借鉴 Spring JdbcTemplate
+  ├── RowMapper.java
+  └── support/          # SqlEngine 后端实现
 ```
 
-### 2.2 第一版后端：挂在自己的 SqlEngine 上
+底层走 `SqlEngine.prepare()` + `PlaceholderResolver`，与 `mysql.ast.parser` 自然衔接。
 
-第一版不必引入真实 MySQL 驱动，底层仍走 `SqlEngine`：
+### 2.2 引擎事务 V1：快照（优先）
 
-```java
-Connection conn = dataSource.getConnection();
-PreparedStatement ps = conn.prepareStatement("SELECT * FROM user WHERE id = ?");
-ps.setInt(1, 1);
-ResultSet rs = ps.executeQuery();
-```
+在 **`mysql` 层**实现，不等到 MyBatis：
 
-**优势：**
+- `TransactionManager` + `CatalogSnapshot`
+- `SqlEngine.beginTransaction()` / `commit()` / `rollback()`
 
-- 完全可控，便于调试
-- 理解 JDBC 每一层在做什么
-- 与已有的 `mysql.ast.parser`、`Row` 天然衔接
+详见事务文档 **V1** 章节与测试用例。
 
-### 2.3 连接池（迷你版）
+### 2.3 JDBC 事务衔接 + `@Transactional`
 
-不必一开始就仿 HikariCP，先做：
+V1 完成后**立刻**做（不必等 V2）：
 
-- 固定大小连接池
-- `getConnection()` / `release()`
-- 连接借还 + 简单超时
-
-### 2.4 事务
-
-利用已有 AOP 基础设施，增加 `@Transactional`：
-
-- `Connection.setAutoCommit(false)`
-- `commit()` / `rollback()`
+- `SqlEngineConnection.setAutoCommit(false)` → 调引擎 `begin`
+- `commit()` / `rollback()` → 调引擎
 - ThreadLocal 绑定「当前请求的 Connection」
+- Spring `@Transactional`（复用 AOP）
 
-Repository 从直接调 `SqlEngine` 改为通过 `Connection` 执行，这是走向 ORM 的关键过渡。
+**验收**：Service 内双 UPDATE「转账」全成功或全回滚。
+
+### 2.4 连接池（迷你版）
+
+在单连接事务跑通后：
+
+- 固定大小池、`borrow` / `release`
+- 每连接独立事务状态（为 V3.2 多事务做准备）
+
+不必仿 HikariCP 全套。
+
+### 2.5 引擎事务 V2：Undo 日志
+
+- 替换 V1 快照为 `UndoTransactionManager`
+- `TableService` 写路径挂 `UndoEntry`
+- JDBC / Repository **无需改**
+
+### 2.6 引擎事务 V3：Savepoint → MVCC → Redo
+
+| 子阶段 | 内容 | 说明 |
+|--------|------|------|
+| **V3.1** | Savepoint | `ROLLBACK TO SAVEPOINT`，基于 Undo 栈 |
+| **V3.2** | MVCC / Read View | 一致性读、RC 或 RR |
+| **V3.3** | Redo + 持久化 | WAL、崩溃恢复、`mysql-data/` |
+
+细节、步骤表、验收场景见 [事务路线 V3](./mini-mysql-transaction-roadmap.md#第三版进阶savepoint--mvcc--redo)。
 
 ---
 
 ## 第三步：JdbcTemplate（MyBatis 的垫脚石）
 
-在完整 MyBatis 之前，建议先实现轻量 `JdbcTemplate`：
+**建议时机**：引擎 **V2 Undo** 完成且 JDBC 事务已接好。
 
 ```java
 List<User> users = jdbcTemplate.query(
@@ -127,55 +157,45 @@ List<User> users = jdbcTemplate.query(
 );
 ```
 
-集中解决：
-
-- SQL 参数绑定
-- `ResultSet` → Java 对象映射
-- 异常统一包装
-
-有了这层，MyBatis 的 Mapper 代理就只是「把接口方法翻译成 Template 调用」。
+集中解决：参数绑定、ResultSet → POJO、异常包装。MyBatis Mapper 代理 = 「接口方法 → Template 调用」。
 
 ---
 
-## 第四步：实现迷你 `mybatis` 模块
+## 第四步：迷你 `mybatis` 模块
 
-已有 ByteBuddy AOP、ClassScanner、注解体系，做 MyBatis 核心条件成熟。
+已有 ByteBuddy、ClassScanner、IoC，条件成熟。
 
-### 可复用的现有能力
-
-| 组件 | 可复用 |
-|------|--------|
-| Mapper 接口代理 | ByteBuddy / JDK Proxy |
-| Mapper 扫描注册 | `ClassScanner` |
-| 依赖注入 | `@Autowired` + `DefaultBeanFactory` |
-| 拦截器链 | 已有 AOP Advisor 机制 |
-
-### MVP 范围（第一版）
+### MVP
 
 1. `@Mapper` + `@Select` / `@Insert` / `@Update` / `@Delete`
-2. `#{}` 参数占位（如 `WHERE id = #{id}`）
-3. 结果映射：`@Results` 或按列名自动映射到 POJO
-4. `SqlSessionFactory` + `SqlSession`（注册为 Bean）
-5. `@MapperScan` 或扩展现有扫描逻辑
+2. `#{}` 占位
+3. 结果映射到 POJO
+4. `SqlSessionFactory` + `SqlSession`
+5. `@MapperScan`
 
 ### 第一版暂不做
 
-- 复杂动态 SQL（`<if>` / `<foreach>`）
-- 二级缓存
-- 插件体系
-- XML Mapper
-
-以上可在第二阶段逐步补充。
+复杂动态 SQL、二级缓存、插件链、XML Mapper。
 
 ---
 
-## 第五步（可选）：扩展与深化
+## 第五步（可选）：扩展
 
-- 增加 `RealMysqlDataSource`，适配真实 MySQL JDBC 驱动
-- 动态 SQL 解析
-- 一级 / 二级缓存简化实现
-- Plugin 拦截器链
-- 回到 `mysql` 模块：JOIN、索引、WAL、持久化（作为「数据库内核」专题）
+- `RealMysqlDataSource` + 官方驱动
+- 动态 SQL、缓存、Plugin
+- 引擎专题：JOIN、索引（与事务 V3 的 Redo/MVCC 互补，非替代）
+
+---
+
+## 如果只能选一个「下一步」
+
+**做 [事务路线 V1 快照](./mini-mysql-transaction-roadmap.md#第一版快照事务snapshot)**，接着 **2.3 JDBC + @Transactional**。
+
+完成后你会同时理解：
+
+- 引擎里 commit/rollback 发生了什么
+- JDBC `Connection` 与 Spring 事务如何挂上去
+- 为何 V2 Undo 比 V1 快照更贴近 InnoDB
 
 ---
 
@@ -183,34 +203,31 @@ List<User> users = jdbcTemplate.query(
 
 | 方向 | 原因 |
 |------|------|
-| 继续深挖内存 SQL 引擎（JOIN、索引、WAL） | 有趣但偏离 JDBC/MyBatis 主线 |
-| 直接引真实 MySQL 驱动开做 MyBatis | 能跑，但缺少「JDBC 每一层在干什么」的体感 |
-| 一步仿完整 MyBatis | 范围太大，容易烂尾 |
+| 一步仿完整 MyBatis | 范围大；先有 JdbcTemplate + 稳定事务 |
+| 跳过 V1/V2 直接 MVCC / Redo | 缺 Undo 与边界体感，难消化 |
+| 直接引真实 MySQL 驱动做全部开发 | 可后期对接；前期应用 SqlEngine 便于调试 |
+| 在 V2 前深挖 JOIN / 索引 | 可并行 hobby；**事务主线优先** |
 
 ---
 
-## 如果只能选一个「下一步」
-
-**做 User CRUD，把 SqlEngine 接进 Web 栈。**
-
-完成后你会清楚：
-
-- 还缺哪些抽象（Connection、Transaction、RowMapper）
-- MyBatis 究竟在帮你省什么
-
-然后再开 `jdbc` 包，目标明确：**让 Repository 从「直接调 SqlEngine」变成「通过 Connection / PreparedStatement」**。
-
----
-
-## 参考：建议的包结构（后续阶段）
+## 参考：包结构
 
 ```
 stack4java/src/main/java/
-├── http/           # 已有
-├── mvc/            # 已有
-├── spring/         # 已有
-├── mysql/          # 已有（内存 SQL 引擎）
-├── jdbc/           # 待建：DataSource、Connection、连接池、事务
-├── jdbc/template/  # 待建：JdbcTemplate
-└── mybatis/        # 待建：Mapper 代理、SqlSession、注解 SQL
+├── http/              # 已有
+├── mvc/               # 已有
+├── spring/            # 已有
+├── mysql/             # 已有；transaction/ 待建（V1→V3）
+├── jdbc/              # 已有；连接池、Savepoint API 待扩展
+├── jdbc/template/     # 待建：JdbcTemplate
+└── mybatis/           # 待建：Mapper、SqlSession
 ```
+
+---
+
+## 文档索引
+
+| 文档 | 内容 |
+|------|------|
+| [learning-roadmap.md](./learning-roadmap.md) | 本文：Web → JDBC → Template → MyBatis |
+| [mini-mysql-transaction-roadmap.md](./mini-mysql-transaction-roadmap.md) | 引擎事务 V1 快照 → V2 Undo → V3 Savepoint/MVCC/Redo |
