@@ -2,9 +2,8 @@ package spring.service.annotations;
 
 import java.lang.annotation.*;
 
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
 @Documented
-public @interface Service {
-    String value() default "";
+public @interface Transactional {
 }

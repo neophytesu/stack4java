@@ -12,4 +12,6 @@ public interface Connection extends AutoCloseable {
     void rollback();
 
     void close();
+
+    boolean isInTransaction();
 }

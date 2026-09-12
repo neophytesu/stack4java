@@ -1,12 +1,15 @@
 package spring;
 
 import http.HttpServer;
+import jdbc.DataSource;
 import jdbc.support.SqlEngineDataSource;
 import mysql.config.SqlEngineBootstrap;
 import mysql.core.SqlEngine;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
+import spring.aop.interceptor.TransactionalInterceptor;
 import spring.aop.pointcut.LogMethodPointcut;
+import spring.aop.pointcut.TransactionalPointcut;
 import spring.ioc.bean.AppConfig;
 import spring.core.DefaultBeanFactory;
 import mvc.DispatcherServlet;
@@ -31,13 +34,16 @@ public class AppStarter {
                 return bean;
             }
         });
-        factory.addAdvisors(List.of(new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor())));
-        SqlEngine sqlEngine= SqlEngineBootstrap.createAndInit();
+        SqlEngine sqlEngine = SqlEngineBootstrap.createAndInit();
         factory.register(sqlEngine);
         factory.register(new SqlEngineDataSource(sqlEngine));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
+        factory.addAdvisors(List.of(
+                new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
+                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor((DataSource) factory.getBean(SqlEngineDataSource.class)))));
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 factory.close();

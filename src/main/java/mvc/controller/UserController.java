@@ -47,4 +47,13 @@ public class UserController {
         boolean success = userService.deleteUser(id);
         return Map.of("success", success);
     }
+
+    @PostMapping("/transfer")
+    public boolean transfer(@RequestBody Map<String, Object> request) {
+        int fromId = (Integer) request.get("fromId");
+        int toId = (Integer) request.get("toId");
+        int amount = (Integer) request.get("amount");
+        boolean failAfterDebit = (Boolean) request.get("failAfterDebit");
+        return userService.transferAge(fromId, toId, amount, failAfterDebit);
+    }
 }

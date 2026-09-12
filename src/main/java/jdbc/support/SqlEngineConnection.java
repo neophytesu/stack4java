@@ -80,4 +80,8 @@ public class SqlEngineConnection implements Connection {
             sqlEngine.beginTransaction();
         }
     }
+
+    public boolean isInTransaction() {
+        return sqlEngine.inTransaction();
+    }
 }
