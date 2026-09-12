@@ -10,9 +10,15 @@ public class SqlEngineConnection implements Connection {
     private final SqlEngine sqlEngine;
     private boolean closed = false;
     private boolean autoCommit = true;
+    private ConnectionPool connectionPool = null;
 
     public SqlEngineConnection(SqlEngine sqlEngine) {
         this.sqlEngine = sqlEngine;
+    }
+
+    public SqlEngineConnection(SqlEngine engine, ConnectionPool connectionPool) {
+        this.sqlEngine = engine;
+        this.connectionPool = connectionPool;
     }
 
     @Override
@@ -69,8 +75,15 @@ public class SqlEngineConnection implements Connection {
 
     @Override
     public void close() {
-        if (!autoCommit && sqlEngine.inTransaction()) {
-            sqlEngine.rollback();
+        if (closed) {
+            return;
+        }
+        if (connectionPool != null) {
+            connectionPool.recycle(this);
+        } else {
+            if (!autoCommit && sqlEngine.inTransaction()) {
+                sqlEngine.rollback();
+            }
         }
         closed = true;
     }
@@ -83,5 +96,18 @@ public class SqlEngineConnection implements Connection {
 
     public boolean isInTransaction() {
         return sqlEngine.inTransaction();
+    }
+
+    public void resetForReuse() {
+        autoCommit = true;
+        closed = false;
+    }
+
+    public void destroyPhysical() {
+        if (isInTransaction()) {
+            sqlEngine.rollback();
+        }
+        connectionPool = null;
+        closed = true;
     }
 }

@@ -49,7 +49,6 @@ public class HttpServer {
 
     private final AtomicBoolean shutDownRequested = new AtomicBoolean(false);
     private volatile ServerSocket serverSocketRef;
-    private final AtomicBoolean isRegister = new AtomicBoolean(false);
 
     public HttpServer(int port) {
         this.port = port;
@@ -118,20 +117,6 @@ public class HttpServer {
                 });
                 expiredSessions.forEach(sessionMap::remove);
             }, 24, 1, TimeUnit.HOURS);
-            if (!isRegister.get()) {
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    shutDownRequested.compareAndSet(false, true);
-                    if (serverSocketRef != null) {
-                        try {
-                            serverSocketRef.close();
-                            serverSocketRef = null;
-                        } catch (IOException e) {
-                            System.out.println("serverSocket close error");
-                        }
-                    }
-                }));
-                isRegister.compareAndSet(false, true);
-            }
             while (!shutDownRequested.get()) {
                 Socket socket = serverSocket.accept();
                 executorService.execute(() -> {
@@ -262,5 +247,21 @@ public class HttpServer {
 
     public RequestDispatcher getRequestDispatcher(String path) {
         return new RequestDispatcherImpl(this, httpHelper.normalizePath(path));
+    }
+
+    public void stop() {
+        if (!shutDownRequested.compareAndSet(false, true)) {
+            return;
+        }
+        ServerSocket socket = serverSocketRef;
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                System.out.println("socket close error");
+            } finally {
+                serverSocketRef = null;
+            }
+        }
     }
 }

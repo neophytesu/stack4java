@@ -6,7 +6,7 @@ import mysql.storage.Catalog;
 import java.util.HashMap;
 
 public class SqlEngineBootstrap {
-    public static SqlEngine createAndInit() {
+    public static Catalog createCatalogAndInit() {
         Catalog catalog = new Catalog();
         catalog.setName("default");
         catalog.setSchemas(new HashMap<>());
@@ -21,6 +21,7 @@ public class SqlEngineBootstrap {
                     PRIMARY KEY (id)
                 )
                 """);
-        return sqlEngine;
+        return catalog;
     }
+
 }

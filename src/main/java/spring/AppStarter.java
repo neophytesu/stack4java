@@ -2,9 +2,8 @@ package spring;
 
 import http.HttpServer;
 import jdbc.DataSource;
-import jdbc.support.SqlEngineDataSource;
+import jdbc.support.PooledDataSource;
 import mysql.config.SqlEngineBootstrap;
-import mysql.core.SqlEngine;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
 import spring.aop.interceptor.TransactionalInterceptor;
@@ -34,26 +33,34 @@ public class AppStarter {
                 return bean;
             }
         });
-        SqlEngine sqlEngine = SqlEngineBootstrap.createAndInit();
-        factory.register(sqlEngine);
-        factory.register(new SqlEngineDataSource(sqlEngine));
+        factory.register(new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
         factory.addAdvisors(List.of(
                 new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
-                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor((DataSource) factory.getBean(SqlEngineDataSource.class)))));
-
+                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor((DataSource) factory.getBean(DataSource.class)))));
+        DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
+        HttpServer server = new HttpServer(8080);
+        server.addServlet("/api/*", dispatcherServlet, "dispatcher");
+        Thread serverThread = new Thread(() -> {
+            try {
+                server.start();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, "httpServer");
+        serverThread.setDaemon(false);
+        serverThread.start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
+                server.stop();
+                serverThread.join(60_000);
                 factory.close();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }));
-        DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
-        HttpServer server = new HttpServer(8080);
-        server.addServlet("/api/*", dispatcherServlet, "dispatcher");
-        server.start();
+        serverThread.join();
     }
 }

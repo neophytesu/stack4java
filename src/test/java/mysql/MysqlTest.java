@@ -8,7 +8,7 @@ import mysql.core.SqlResult;
 public class MysqlTest {
 
     static void main() {
-        SqlEngine sqlEngine = SqlEngineBootstrap.createAndInit();
+        SqlEngine sqlEngine = new SqlEngine(SqlEngineBootstrap.createCatalogAndInit());
         String tableName = "user";
         String sql = """
                 INSERT INTO user VALUES (1, 'Alice', 20),(2, 'Bob', 30),(3, 'Dup', 25);
@@ -34,7 +34,7 @@ public class MysqlTest {
         System.out.println(result.toString());
         sql = "SELECT * FROM user";
         sqlEngine.beginTransaction();
-        sqlEngine.execute("INSERT INTO user VALUES (NULL, 'Carol', 22);");
+        sqlEngine.execute("INSERT INTO user VALUES (NULL, 'Carol', 22)");
         sqlEngine.rollback();
         executeSql(sqlEngine, sql, tableName);
         sqlEngine.beginTransaction();
