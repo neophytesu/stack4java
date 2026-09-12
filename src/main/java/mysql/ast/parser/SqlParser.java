@@ -1,6 +1,7 @@
 package mysql.ast.parser;
 
-import mysql.ast.expr.Expr;
+import mysql.ast.expr.compare.Expr;
+import mysql.ast.expr.value.ValueExpr;
 import mysql.ast.parser.token.TokenStream;
 import mysql.ast.parser.token.TokenType;
 import mysql.ast.statement.*;
@@ -129,8 +130,8 @@ public class SqlParser {
         do {
             String setColumn = stream.expectIdentifier();
             stream.expect(EQ);
-            Object newValue = stream.expectLiteralValue();
-            assignments.add(new Assignment(setColumn, newValue));
+            ValueExpr value = stream.parseValueExpr();
+            assignments.add(new Assignment(setColumn, value));
         } while (stream.match(COMMA));
         Expr where = null;
         if (stream.match(WHERE)) {

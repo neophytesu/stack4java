@@ -1,6 +1,10 @@
 package mysql.core;
 
-import mysql.ast.expr.*;
+import mysql.ast.expr.compare.*;
+import mysql.ast.expr.value.BinaryValueExpr;
+import mysql.ast.expr.value.ColumnRef;
+import mysql.ast.expr.value.ValueExpr;
+import mysql.ast.expr.value.ValueLiteral;
 import mysql.ast.parser.SqlParseException;
 import mysql.ast.statement.*;
 
@@ -25,10 +29,19 @@ public class PlaceholderResolver {
 
     private static Statement resolveUpdate(UpdateStatement s, Object[] params) {
         List<Assignment> assignments = s.assignments().stream()
-                .map(a -> new Assignment(a.columnName(), resolveValue(a.newValue(), params)))
+                .map(a -> new Assignment(a.columnName(), resolveValueExpr(a.value(), params)))
                 .toList();
         Expr where = s.where() == null ? null : resolveExpr(s.where(), params);
         return new UpdateStatement(s.schemaName(), s.tableName(), assignments, where);
+    }
+
+    private static ValueExpr resolveValueExpr(ValueExpr expr, Object[] params) {
+        return switch (expr) {
+            case ValueLiteral v -> new ValueLiteral(resolveValue(v.value(), params));
+            case ColumnRef c -> c;
+            case BinaryValueExpr b ->
+                    new BinaryValueExpr(resolveValueExpr(b.left(), params), b.op(), resolveValueExpr(b.right(), params));
+        };
     }
 
     private static Statement resolveInsert(InsertStatement s, Object[] params) {

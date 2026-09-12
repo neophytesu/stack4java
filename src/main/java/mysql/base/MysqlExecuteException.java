@@ -26,6 +26,18 @@ public class MysqlExecuteException extends RuntimeException {
     }
 
     public static MysqlExecuteException NULL_NOT_SUPPORTED_COMPARE() {
-        return new MysqlExecuteException(105L, "null 不支持该比较");
+        return new MysqlExecuteException(105L, "该比较不支持NULL");
+    }
+
+    public static MysqlExecuteException NULL_NOT_SUPPORTED_COMPUTE() {
+        return new MysqlExecuteException(106L, "该计算不支持NULL");
+    }
+
+    public static MysqlExecuteException WRONG_TYPE_TO_COMPUTE() {
+        return new MysqlExecuteException(107L, "错误的类型用于算数运算");
+    }
+
+    public static MysqlExecuteException NEED_TO_PREPARE() {
+        return new MysqlExecuteException(108L, "未进行预处理");
     }
 }

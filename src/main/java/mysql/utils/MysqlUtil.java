@@ -1,6 +1,6 @@
 package mysql.utils;
 
-import mysql.ast.expr.CompareOp;
+import mysql.ast.expr.compare.CompareOp;
 import mysql.ast.statement.OrderByItem;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;

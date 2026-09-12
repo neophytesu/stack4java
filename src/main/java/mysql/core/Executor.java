@@ -1,6 +1,6 @@
 package mysql.core;
 
-import mysql.ast.expr.ParamPlaceholder;
+import mysql.ast.expr.compare.ParamPlaceholder;
 import mysql.ast.parser.SqlParseException;
 import mysql.ast.statement.*;
 import mysql.ast.statement.CreateSchemaStatement;
@@ -51,16 +51,12 @@ public class Executor {
     }
 
     private Integer toInteger(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Integer n) {
-            return n;
-        }
-        if (value instanceof ParamPlaceholder) {
-            throw new SqlParseException("LIMIT/OFFSET 占位符未解析");
-        }
-        throw new SqlParseException("非法 LIMIT/OFFSET 值");
+        return switch (value) {
+            case null -> null;
+            case Integer n -> n;
+            case ParamPlaceholder _ -> throw new SqlParseException("LIMIT/OFFSET 占位符未解析");
+            default -> throw new SqlParseException("非法 LIMIT/OFFSET 值");
+        };
     }
 
     private ExecuteResult executeDefine(DefineStatement stmt) {

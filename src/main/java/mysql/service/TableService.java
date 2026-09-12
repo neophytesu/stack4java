@@ -1,11 +1,13 @@
 package mysql.service;
 
 import lombok.Data;
-import mysql.ast.expr.Expr;
-import mysql.ast.expr.ExprEvaluator;
+import mysql.ast.expr.compare.Expr;
+import mysql.ast.expr.compare.ExprEvaluator;
+import mysql.ast.expr.value.ValueExprEvaluator;
 import mysql.ast.statement.Assignment;
 import mysql.ast.statement.OrderByItem;
 import mysql.base.ExecuteResult;
+import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
 import mysql.storage.Row;
@@ -214,10 +216,16 @@ public class TableService {
                 int columnIdx = MysqlUtil.columnName2Index(List.of(assignment.columnName()), table.getColumns()).getFirst();
                 Column column = table.getColumns().get(columnIdx);
                 ColumnType columnType = column.getColumnType();
-                if (columnType.refuse(assignment.newValue())) {
+                Object computed;
+                try {
+                    computed = ValueExprEvaluator.eval(assignment.value(), row, table);
+                } catch (MysqlExecuteException e) {
+                    return ExecuteResult.convertException(e);
+                }
+                if (columnType.refuse(computed)) {
                     return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
                 }
-                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(assignment.newValue(), columnType);
+                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(computed, columnType);
             }
             if (touchesPk) {
                 ExecuteResult pkCheck = checkPrimaryKey(row, row);

@@ -1,4 +1,4 @@
-package mysql.ast.expr;
+package mysql.ast.expr.compare;
 
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Column;

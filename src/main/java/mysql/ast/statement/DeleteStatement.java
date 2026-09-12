@@ -1,6 +1,6 @@
 package mysql.ast.statement;
 
-import mysql.ast.expr.Expr;
+import mysql.ast.expr.compare.Expr;
 
 public record DeleteStatement(
         String schemaName,

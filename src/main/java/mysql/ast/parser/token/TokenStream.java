@@ -1,6 +1,7 @@
 package mysql.ast.parser.token;
 
-import mysql.ast.expr.*;
+import mysql.ast.expr.compare.*;
+import mysql.ast.expr.value.*;
 import mysql.ast.parser.SqlParseException;
 
 import java.util.List;
@@ -140,5 +141,31 @@ public class TokenStream {
             throw new SqlParseException("LIMIT/OFFSET 不能为 NULL");
         }
         throw new SqlParseException("LIMIT/OFFSET 期望整数或 ?");
+    }
+
+    public ValueExpr parseValueExpr() {
+        ValueExpr left = parseValuePrimary();
+        while (check(TokenType.PLUS) || check(TokenType.MINUS)) {
+            ArityOp op = match(TokenType.PLUS) ? ArityOp.ADD : ArityOp.SUB;
+            ValueExpr right = parseValuePrimary();
+            left = new BinaryValueExpr(left, op, right);
+        }
+        return left;
+    }
+
+    private ValueExpr parseValuePrimary() {
+        ValueExpr e;
+        if (match(TokenType.LPAREN)) {
+            e = parseValueExpr();
+            expect(TokenType.RPAREN);
+            return e;
+        }
+        if (check(TokenType.INT_LITERAL) || check(TokenType.STRING_LITERAL) || check(TokenType.BOOLEAN_LITERAL) || check(TokenType.NULL) || check(TokenType.PARAM)) {
+            return new ValueLiteral(expectLiteralValue());
+        }
+        if (check(TokenType.IDENTIFIER)) {
+            return new ColumnRef(expectIdentifier());
+        }
+        throw new SqlParseException("解析错误");
     }
 }

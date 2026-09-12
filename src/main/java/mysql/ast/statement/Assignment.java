@@ -1,4 +1,6 @@
 package mysql.ast.statement;
 
-public record Assignment(String columnName, Object newValue) {
+import mysql.ast.expr.value.ValueExpr;
+
+public record Assignment(String columnName, ValueExpr value) {
 }

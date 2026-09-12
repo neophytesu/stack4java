@@ -73,6 +73,16 @@ public class SqlLexer {
                 pos++;
                 continue;
             }
+            if (c == '+') {
+                tokens.add(Token.symbol(TokenType.PLUS, '+'));
+                pos++;
+                continue;
+            }
+            if (c == '-') {
+                tokens.add(Token.symbol(TokenType.MINUS, '-'));
+                pos++;
+                continue;
+            }
             if (c == ';') {
                 tokens.add(Token.symbol(TokenType.SEMICOLON, ';'));
                 pos++;
