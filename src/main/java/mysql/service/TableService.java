@@ -8,6 +8,8 @@ import mysql.ast.statement.Assignment;
 import mysql.ast.statement.OrderByItem;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
+import mysql.core.EngineContext;
+import mysql.core.transaction.*;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
 import mysql.storage.Row;
@@ -20,9 +22,11 @@ import java.util.*;
 public class TableService {
 
     private Table table;
+    private EngineContext context;
 
-    public void useTable(Table table) {
+    public void useTable(Table table, EngineContext context) {
         this.table = table;
+        this.context = context;
     }
 
     public ExecuteResult addColumn(Column column) {
@@ -73,6 +77,11 @@ public class TableService {
 
     public ExecuteResult insert(List<String> columnNames, List<List<Object>> rows) {
         List<Row> pending = new ArrayList<>(rows.size());
+        long oldNext = -1;
+        Integer pkIdx = table.getPrimaryIdx();
+        if (pkIdx != null && table.getColumns().get(pkIdx).isAutoIncrement()) {
+            oldNext = table.getNextAutoIncrement();
+        }
         long next = table.getNextAutoIncrement();
         for (List<Object> values : rows) {
             Object[] rowData = new Object[table.getColumns().size()];
@@ -91,6 +100,9 @@ public class TableService {
         }
         table.getRows().addAll(pending);
         table.setNextAutoIncrement(next);
+        for (Row row : pending) {
+            recordUndo(new InsertUndo(context.getCurrentSchema(), table, oldNext, row));
+        }
         return ExecuteResult.INSERT_SUCCESS(pending.size());
     }
 
@@ -154,6 +166,9 @@ public class TableService {
 
     private long fillAutoIncrement(Object[] rowData, long next) {
         Integer pkIdx = table.getPrimaryIdx();
+        if (pkIdx == null) {
+            return next;
+        }
         Column pkColumn = table.getColumns().get(pkIdx);
         if (!pkColumn.isAutoIncrement()) {
             return next;
@@ -188,14 +203,20 @@ public class TableService {
 
     public ExecuteResult delete(Expr where) {
         List<Row> rows = table.getRows();
+        List<ColumnType> columnTypes = table.getColumns().stream().map(Column::getColumnType).toList();
         if (where == null) {
+            for (Row row : rows) {
+                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes)));
+            }
             int num = rows.size();
             rows.clear();
             return ExecuteResult.DELETE_SUCCESS(num);
         }
         int count = 0;
         for (int i = rows.size() - 1; i >= 0; i--) {
-            if (ExprEvaluator.eval(where, rows.get(i), table)) {
+            Row row = rows.get(i);
+            if (ExprEvaluator.eval(where, row, table)) {
+                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes)));
                 rows.remove(i);
                 count++;
             }
@@ -208,9 +229,15 @@ public class TableService {
         String pkName = pkIdx != null ? table.getColumns().get(pkIdx).getColumnName() : null;
         boolean touchesPk = pkName != null && assignments.stream().anyMatch(c -> c.columnName().equals(pkName));
         int count = 0;
+        List<ColumnType> columnTypes = table.getColumns().stream().map(Column::getColumnType).toList();
         for (Row row : table.getRows()) {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
                 continue;
+            }
+            List<Object> oldValues = MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes);
+            long oldNext = -1;
+            if (touchesPk) {
+                oldNext = table.getNextAutoIncrement();
             }
             for (Assignment assignment : assignments) {
                 int columnIdx = MysqlUtil.columnName2Index(List.of(assignment.columnName()), table.getColumns()).getFirst();
@@ -235,6 +262,7 @@ public class TableService {
                 long updated = bumpNext(table.getNextAutoIncrement(), row.getValues()[pkIdx]);
                 table.setNextAutoIncrement(updated);
             }
+            recordUndo(new UpdateUndo(context.getCurrentSchema(), table, row, oldValues, oldNext));
             count++;
         }
         return ExecuteResult.UPDATE_SUCCESS(count);
@@ -282,5 +310,12 @@ public class TableService {
             projected.add(MysqlUtil.deepCopyProjectedRow(row, indices, columns));
         }
         return Collections.unmodifiableList(projected);
+    }
+
+    private void recordUndo(UndoEntry entry) {
+        Transaction transaction = context.getActiveTransaction();
+        if (transaction != null) {
+            transaction.undoLog().add(entry);
+        }
     }
 }

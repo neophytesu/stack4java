@@ -1,6 +1,7 @@
 package jdbc.support;
 
 import jdbc.JdbcException;
+import mysql.base.ExecuteResult;
 import mysql.core.SqlEngine;
 import mysql.storage.Catalog;
 
@@ -13,11 +14,13 @@ public class ConnectionPool {
     Queue<SqlEngineConnection> idle;
     int activeCount;
     volatile boolean shutdown = false;
+    String defaultSchemaName;
 
-    public ConnectionPool(Catalog catalog, int maxSize) {
+    public ConnectionPool(Catalog catalog, int maxSize, String defaultSchemaName) {
         this.sharedCatalog = catalog;
         this.maxSize = maxSize;
         idle = new ConcurrentLinkedQueue<>();
+        this.defaultSchemaName = defaultSchemaName;
     }
 
     SqlEngineConnection borrow() {
@@ -32,6 +35,10 @@ public class ConnectionPool {
             SqlEngine engine = new SqlEngine(sharedCatalog);
             conn = new SqlEngineConnection(engine, this);
             activeCount++;
+        }
+        ExecuteResult r = conn.getSqlEngine().getContext().useSchema(defaultSchemaName);
+        if (!r.isSuccess()) {
+            throw new JdbcException(r.description());
         }
         conn.resetForReuse();
         return conn;

@@ -40,4 +40,8 @@ public class MysqlExecuteException extends RuntimeException {
     public static MysqlExecuteException NEED_TO_PREPARE() {
         return new MysqlExecuteException(108L, "未进行预处理");
     }
+
+    public static MysqlExecuteException ROLLBACK_FAILURE(String message) {
+        return new MysqlExecuteException(109L, "回滚失败，原因：" + message);
+    }
 }

@@ -81,7 +81,7 @@ public class Executor {
                 ExecuteResult dropped = context.getSchemaService().dropTable(t);
                 if (dropped.isSuccess() && context.getCurrentTable() != null && context.getCurrentTable().getTableName().equals(s.tableName())) {
                     context.setCurrentTable(null);
-                    context.getTableService().useTable(null);
+                    context.getTableService().useTable(null, context);
                 }
                 yield dropped;
             }

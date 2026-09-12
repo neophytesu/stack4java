@@ -8,8 +8,8 @@ import spring.ioc.bean.lifecycle.destroy.PreDestroy;
 public class PooledDataSource implements DataSource {
     ConnectionPool connectionPool;
 
-    public PooledDataSource(Catalog catalog, int maxSize) {
-        connectionPool = new ConnectionPool(catalog, maxSize);
+    public PooledDataSource(Catalog catalog, int maxSize, String defaultSchemaName) {
+        connectionPool = new ConnectionPool(catalog, maxSize, defaultSchemaName);
     }
 
     @Override

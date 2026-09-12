@@ -15,14 +15,6 @@ public class EngineContext {
     private Catalog catalog;
     private Transaction activeTransaction;
 
-    public void rebindAfterStorageChange() {
-        catalogService.useCatalog(catalog);
-        if (currentSchema != null) {
-            String schemaName = currentSchema.getSchemaName();
-            useSchema(schemaName);
-        }
-    }
-
     public EngineContext(Catalog catalog) {
         this.catalog = catalog;
         catalogService = new CatalogService();
@@ -48,7 +40,7 @@ public class EngineContext {
         }
         currentSchema = schema;
         currentTable = null;
-        tableService.useTable(null);
+        tableService.useTable(null, this);
         schemaService.useSchema(schema);
         return ExecuteResult.SUCCESS();
     }
@@ -62,7 +54,7 @@ public class EngineContext {
             return ExecuteResult.TABLE_NOT_EXIST();
         }
         currentTable = table;
-        tableService.useTable(table);
+        tableService.useTable(table, this);
         return ExecuteResult.SUCCESS();
     }
 }

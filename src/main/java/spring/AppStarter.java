@@ -33,7 +33,7 @@ public class AppStarter {
                 return bean;
             }
         });
-        factory.register(new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4));
+        factory.register(new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app"));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }

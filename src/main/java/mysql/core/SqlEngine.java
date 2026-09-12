@@ -6,7 +6,7 @@ import mysql.ast.parser.SqlParseException;
 import mysql.ast.parser.SqlParser;
 import mysql.ast.statement.DefineStatement;
 import mysql.ast.statement.Statement;
-import mysql.core.transaction.SnapshotTransactionManager;
+import mysql.core.transaction.UndoTransactionManager;
 import mysql.core.transaction.TransactionManager;
 import mysql.storage.Catalog;
 
@@ -15,7 +15,7 @@ public class SqlEngine {
     private final EngineContext context;
     private final SqlParser parser;
     private final Executor executor;
-    private final TransactionManager transactionManager = new SnapshotTransactionManager();
+    private final TransactionManager transactionManager = new UndoTransactionManager();
 
     public SqlEngine(Catalog catalog) {
         this.context = new EngineContext(catalog);
