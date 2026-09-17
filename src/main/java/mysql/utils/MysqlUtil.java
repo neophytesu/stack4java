@@ -93,4 +93,13 @@ public class MysqlUtil {
         }
         return 0;
     }
+
+    public static void removeByIdentity(List<Row> rows, Row target) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i) == target) {
+                rows.remove(i);
+                return;
+            }
+        }
+    }
 }

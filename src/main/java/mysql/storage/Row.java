@@ -1,10 +1,12 @@
 package mysql.storage;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Arrays;
 
-@Data
+@Getter
+@Setter
 public class Row {
     Object[] values;
 

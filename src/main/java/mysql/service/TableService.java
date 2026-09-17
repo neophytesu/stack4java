@@ -203,10 +203,9 @@ public class TableService {
 
     public ExecuteResult delete(Expr where) {
         List<Row> rows = table.getRows();
-        List<ColumnType> columnTypes = table.getColumns().stream().map(Column::getColumnType).toList();
         if (where == null) {
             for (Row row : rows) {
-                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes)));
+                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, row));
             }
             int num = rows.size();
             rows.clear();
@@ -216,7 +215,7 @@ public class TableService {
         for (int i = rows.size() - 1; i >= 0; i--) {
             Row row = rows.get(i);
             if (ExprEvaluator.eval(where, row, table)) {
-                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes)));
+                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, row));
                 rows.remove(i);
                 count++;
             }
@@ -230,6 +229,7 @@ public class TableService {
         boolean touchesPk = pkName != null && assignments.stream().anyMatch(c -> c.columnName().equals(pkName));
         int count = 0;
         List<ColumnType> columnTypes = table.getColumns().stream().map(Column::getColumnType).toList();
+        List<PendingUpdate> pending = new ArrayList<>();
         for (Row row : table.getRows()) {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
                 continue;
@@ -317,5 +317,8 @@ public class TableService {
         if (transaction != null) {
             transaction.undoLog().add(entry);
         }
+    }
+
+    record PendingUpdate(Row row, List<Object> oldValues, Object[] newValues, long oldNext) {
     }
 }
