@@ -10,4 +10,10 @@ public interface TransactionManager {
     void rollback(EngineContext context);
 
     boolean isActive(EngineContext context);
+
+    void savepoint(EngineContext context, String name);
+
+    void rollbackToSavepoint(EngineContext context, String name);
+
+    void releaseSavepoint(EngineContext context, String name);
 }

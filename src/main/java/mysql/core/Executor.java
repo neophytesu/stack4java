@@ -31,6 +31,7 @@ public class Executor {
                 case QueryStatement queryStmt -> executeQuery(queryStmt);
                 case ManipulateStatement manipulateStmt -> SqlResult.of(executeManipulate(manipulateStmt));
                 case DefineStatement defineStmt -> SqlResult.of(executeDefine(defineStmt));
+                case TransactionStatement _ -> throw new IllegalStateException("事务语句应由 SqlEngine 处理");
             };
         } catch (MysqlExecuteException e) {
             return SqlResult.of(ExecuteResult.convertException(e));

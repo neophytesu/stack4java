@@ -27,5 +27,7 @@ public enum TokenType {
     LIMIT, OFFSET,
     SEMICOLON,
 
+    BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE, TO,
+
     EOF
 }

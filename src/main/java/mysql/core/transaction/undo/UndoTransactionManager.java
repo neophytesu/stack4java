@@ -41,4 +41,27 @@ public class UndoTransactionManager implements TransactionManager {
     public boolean isActive(EngineContext context) {
         return context.getActiveTransaction() != null;
     }
+
+    @Override
+    public void savepoint(EngineContext context, String name) {
+        ensureActive(context).undoLog().savepoint(requireName(name));
+    }
+
+    @Override
+    public void rollbackToSavepoint(EngineContext context, String name) {
+        ensureActive(context).undoLog().rollbackTo(context, requireName(name));
+    }
+
+
+    @Override
+    public void releaseSavepoint(EngineContext context, String name) {
+        ensureActive(context).undoLog().release(requireName(name));
+    }
+
+    private String requireName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new TransactionException("savepoint 名称不能为空");
+        }
+        return name;
+    }
 }

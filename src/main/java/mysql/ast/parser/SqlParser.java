@@ -46,10 +46,51 @@ public class SqlParser {
             case SELECT -> parseDql(stream, type);
             case INSERT, UPDATE, DELETE -> parseDml(stream, type);
             case CREATE, USE, DROP, ALTER -> parseDdl(stream, type);
+            case BEGIN, COMMIT, ROLLBACK, SAVEPOINT, RELEASE -> parseTransaction(stream, type);
             default -> throw new SqlParseException("不支持: " + type);
         };
         int paramCount = stream.paramCount();
         return new ParsedSql(stmt, paramCount);
+    }
+
+    private Statement parseTransaction(TokenStream stream, TokenType type) {
+        return switch (type) {
+            case BEGIN -> {
+                stream.expect(BEGIN);
+                stream.expect(EOF);
+                yield new BeginStatement();
+            }
+            case COMMIT -> {
+                stream.expect(COMMIT);
+                stream.expect(EOF);
+                yield new CommitStatement();
+            }
+            case SAVEPOINT -> {
+                stream.expect(SAVEPOINT);
+                String name = stream.expectIdentifier();
+                stream.expect(EOF);
+                yield new SavepointStatement(name);
+            }
+            case RELEASE -> {
+                stream.expect(RELEASE);
+                stream.expect(SAVEPOINT);
+                String name = stream.expectIdentifier();
+                stream.expect(EOF);
+                yield new ReleaseSavepointStatement(name);
+            }
+            case ROLLBACK -> {
+                stream.expect(ROLLBACK);
+                if (stream.match(TO)) {
+                    stream.match(SAVEPOINT);
+                    String name = stream.expectIdentifier();
+                    stream.expect(EOF);
+                    yield new RollbackToSavepointStatement(name);
+                }
+                stream.expect(EOF);
+                yield new RollbackStatement();
+            }
+            default -> throw new SqlParseException("不支持：" + type);
+        };
     }
 
     private ManipulateStatement parseDml(TokenStream stream, TokenType type) {

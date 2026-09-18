@@ -18,7 +18,8 @@ public class SqlLexerSupport {
             "IS", "NOT", "NULL",
             "ORDER", "BY", "ASC", "DESC",
             "LIMIT", "OFFSET",
-            "ALTER", "ADD", "COLUMN"
+            "ALTER", "ADD", "COLUMN",
+            "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "TO"
     );
 
 
