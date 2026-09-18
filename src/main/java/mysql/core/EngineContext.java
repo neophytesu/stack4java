@@ -3,6 +3,7 @@ package mysql.core;
 import lombok.Data;
 import mysql.base.ExecuteResult;
 import mysql.core.transaction.Transaction;
+import mysql.core.transaction.undo.UndoEntry;
 import mysql.service.CatalogService;
 import mysql.service.SchemaService;
 import mysql.service.TableService;
@@ -21,6 +22,8 @@ public class EngineContext {
         schemaService = new SchemaService();
         tableService = new TableService();
         catalogService.useCatalog(catalog);
+        schemaService.useSchema(null, this);
+        tableService.useTable(null, this);
     }
 
     private CatalogService catalogService;
@@ -41,7 +44,7 @@ public class EngineContext {
         currentSchema = schema;
         currentTable = null;
         tableService.useTable(null, this);
-        schemaService.useSchema(schema);
+        schemaService.useSchema(schema, this);
         return ExecuteResult.SUCCESS();
     }
 
@@ -56,5 +59,11 @@ public class EngineContext {
         currentTable = table;
         tableService.useTable(table, this);
         return ExecuteResult.SUCCESS();
+    }
+
+    public void recordUndo(UndoEntry undoEntry) {
+        if (activeTransaction != null) {
+            activeTransaction.undoLog().add(undoEntry);
+        }
     }
 }

@@ -3,10 +3,12 @@ package jdbc.support;
 import jdbc.Connection;
 import jdbc.JdbcException;
 import jdbc.PreparedStatement;
+import lombok.Getter;
 import mysql.core.SqlEngine;
 import mysql.core.SqlPreparedStatement;
 
 public class SqlEngineConnection implements Connection {
+    @Getter
     private final SqlEngine sqlEngine;
     private boolean closed = false;
     private boolean autoCommit = true;

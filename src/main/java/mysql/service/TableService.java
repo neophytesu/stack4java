@@ -9,7 +9,11 @@ import mysql.ast.statement.OrderByItem;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.core.EngineContext;
-import mysql.core.transaction.*;
+import mysql.core.transaction.undo.ddl.AddColumnUndo;
+import mysql.core.transaction.undo.ddl.DropColumnUndo;
+import mysql.core.transaction.undo.dml.DeleteUndo;
+import mysql.core.transaction.undo.dml.InsertUndo;
+import mysql.core.transaction.undo.dml.UpdateUndo;
 import mysql.storage.Column;
 import mysql.storage.ColumnType;
 import mysql.storage.Row;
@@ -42,6 +46,14 @@ public class TableService {
             neu[old.length] = null;
             row.setValues(neu);
         }
+        int idx = -1;
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getColumnName().equals(columnName)) {
+                idx = i;
+                break;
+            }
+        }
+        context.recordUndo(new AddColumnUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), columnName, idx));
         return ExecuteResult.SUCCESS();
     }
 
@@ -61,7 +73,15 @@ public class TableService {
         if (pkIdx != null && pkIdx == idx) {
             return ExecuteResult.PRIMARY_KEY_DROP_NOT_ALLOWED();
         }
+        Column dropped = columns.get(idx);
+        ArrayList<Row> snapshotRows = new ArrayList<>(table.getRows());
+        ArrayList<Object> cells = new ArrayList<>(snapshotRows.size());
+        ColumnType type = dropped.getColumnType();
+        for (Row row : snapshotRows) {
+            cells.add(MysqlUtil.deepCopyValue(row.getValues()[idx], type));
+        }
         columns.remove(idx);
+        context.recordUndo(new DropColumnUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), idx, dropped, pkIdx, snapshotRows, cells));
         for (Row row : table.getRows()) {
             Object[] old = row.getValues();
             Object[] neu = new Object[old.length - 1];
@@ -101,7 +121,7 @@ public class TableService {
         table.getRows().addAll(pending);
         table.setNextAutoIncrement(next);
         for (Row row : pending) {
-            recordUndo(new InsertUndo(context.getCurrentSchema(), table, oldNext, row));
+            context.recordUndo(new InsertUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), oldNext, row));
         }
         return ExecuteResult.INSERT_SUCCESS(pending.size());
     }
@@ -181,31 +201,11 @@ public class TableService {
         return next + 1;
     }
 
-    private ExecuteResult checkPrimaryKey(Row row, Row exclude) {
-        Integer pkIdx = table.getPrimaryIdx();
-        if (pkIdx == null) {
-            return ExecuteResult.SUCCESS();
-        }
-        Object pk = row.getValues()[pkIdx];
-        if (pk == null) {
-            return ExecuteResult.PRIMARY_KEY_IS_NULL();
-        }
-        for (Row existing : table.getRows()) {
-            if (existing == exclude) {
-                continue;
-            }
-            if (Objects.equals(pk, existing.getValues()[pkIdx])) {
-                return ExecuteResult.PRIMARY_KEY_REPEATED();
-            }
-        }
-        return ExecuteResult.SUCCESS();
-    }
-
     public ExecuteResult delete(Expr where) {
         List<Row> rows = table.getRows();
         if (where == null) {
             for (Row row : rows) {
-                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, row));
+                context.recordUndo(new DeleteUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), row));
             }
             int num = rows.size();
             rows.clear();
@@ -215,7 +215,7 @@ public class TableService {
         for (int i = rows.size() - 1; i >= 0; i--) {
             Row row = rows.get(i);
             if (ExprEvaluator.eval(where, row, table)) {
-                recordUndo(new DeleteUndo(context.getCurrentSchema(), table, row));
+                context.recordUndo(new DeleteUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), row));
                 rows.remove(i);
                 count++;
             }
@@ -227,45 +227,76 @@ public class TableService {
         Integer pkIdx = table.getPrimaryIdx();
         String pkName = pkIdx != null ? table.getColumns().get(pkIdx).getColumnName() : null;
         boolean touchesPk = pkName != null && assignments.stream().anyMatch(c -> c.columnName().equals(pkName));
-        int count = 0;
         List<ColumnType> columnTypes = table.getColumns().stream().map(Column::getColumnType).toList();
+        long oldNext = touchesPk ? table.getNextAutoIncrement() : -1;
         List<PendingUpdate> pending = new ArrayList<>();
         for (Row row : table.getRows()) {
             if (where != null && !ExprEvaluator.eval(where, row, table)) {
                 continue;
             }
             List<Object> oldValues = MysqlUtil.deepCopy(Arrays.asList(row.getValues()), columnTypes);
-            long oldNext = -1;
-            if (touchesPk) {
-                oldNext = table.getNextAutoIncrement();
-            }
+            Object[] newValues = Arrays.copyOf(row.getValues(), row.getValues().length);
+            Row scratch = new Row();
+            scratch.setValues(newValues);
             for (Assignment assignment : assignments) {
                 int columnIdx = MysqlUtil.columnName2Index(List.of(assignment.columnName()), table.getColumns()).getFirst();
                 Column column = table.getColumns().get(columnIdx);
                 ColumnType columnType = column.getColumnType();
                 Object computed;
                 try {
-                    computed = ValueExprEvaluator.eval(assignment.value(), row, table);
+                    computed = ValueExprEvaluator.eval(assignment.value(), scratch, table);
                 } catch (MysqlExecuteException e) {
                     return ExecuteResult.convertException(e);
                 }
                 if (columnType.refuse(computed)) {
                     return ExecuteResult.COLUMN_TYPE_MISMATCH(column.getColumnName());
                 }
-                row.getValues()[columnIdx] = MysqlUtil.deepCopyValue(computed, columnType);
+                newValues[columnIdx] = MysqlUtil.deepCopyValue(computed, columnType);
             }
-            if (touchesPk) {
-                ExecuteResult pkCheck = checkPrimaryKey(row, row);
-                if (!pkCheck.isSuccess()) {
-                    return pkCheck;
-                }
-                long updated = bumpNext(table.getNextAutoIncrement(), row.getValues()[pkIdx]);
-                table.setNextAutoIncrement(updated);
-            }
-            recordUndo(new UpdateUndo(context.getCurrentSchema(), table, row, oldValues, oldNext));
-            count++;
+            pending.add(new PendingUpdate(row, oldValues, newValues, oldNext));
         }
-        return ExecuteResult.UPDATE_SUCCESS(count);
+        if (touchesPk) {
+            ExecuteResult pkCheck = checkPendingPrimaryKeys(pending, pkIdx);
+            if (!pkCheck.isSuccess()) {
+                return pkCheck;
+            }
+        }
+        long next = table.getNextAutoIncrement();
+        for (PendingUpdate p : pending) {
+            p.row.setValues(p.newValues);
+            if (touchesPk) {
+                next = bumpNext(next, p.newValues[pkIdx]);
+            }
+            context.recordUndo(new UpdateUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), p.row, p.oldValues, p.oldNext));
+        }
+        if (touchesPk) {
+            table.setNextAutoIncrement(next);
+        }
+        return ExecuteResult.UPDATE_SUCCESS(pending.size());
+    }
+
+    private ExecuteResult checkPendingPrimaryKeys(List<PendingUpdate> pending, Integer pkIdx) {
+        Set<Object> newPks = new HashSet<>();
+        Set<Row> changing = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (PendingUpdate p : pending) {
+            changing.add(p.row);
+            Object pk = p.newValues[pkIdx];
+            if (pk == null) {
+                return ExecuteResult.PRIMARY_KEY_IS_NULL();
+            }
+            if (!newPks.add(pk)) {
+                return ExecuteResult.PRIMARY_KEY_REPEATED();
+            }
+        }
+        for (Row existing : table.getRows()) {
+            if (changing.contains(existing)) {
+                continue;
+            }
+            if (newPks.contains(existing.getValues()[pkIdx])) {
+                return ExecuteResult.PRIMARY_KEY_REPEATED();
+            }
+        }
+        return ExecuteResult.SUCCESS();
     }
 
     private long bumpNext(long next, Object pkValue) {
@@ -310,13 +341,6 @@ public class TableService {
             projected.add(MysqlUtil.deepCopyProjectedRow(row, indices, columns));
         }
         return Collections.unmodifiableList(projected);
-    }
-
-    private void recordUndo(UndoEntry entry) {
-        Transaction transaction = context.getActiveTransaction();
-        if (transaction != null) {
-            transaction.undoLog().add(entry);
-        }
     }
 
     record PendingUpdate(Row row, List<Object> oldValues, Object[] newValues, long oldNext) {

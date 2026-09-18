@@ -17,7 +17,6 @@ import mysql.ast.statement.QueryStatement;
 import mysql.base.ExecuteResult;
 import mysql.base.MysqlExecuteException;
 import mysql.storage.Schema;
-import mysql.storage.Table;
 
 public class Executor {
     private final EngineContext context;
@@ -76,9 +75,7 @@ public class Executor {
             case DropTableStatement s -> {
                 ExecuteResult r = context.useSchema(s.schemaName());
                 if (!r.isSuccess()) yield r;
-                Table t = new Table();
-                t.setTableName(s.tableName());
-                ExecuteResult dropped = context.getSchemaService().dropTable(t);
+                ExecuteResult dropped = context.getSchemaService().dropTable(s.tableName());
                 if (dropped.isSuccess() && context.getCurrentTable() != null && context.getCurrentTable().getTableName().equals(s.tableName())) {
                     context.setCurrentTable(null);
                     context.getTableService().useTable(null, context);

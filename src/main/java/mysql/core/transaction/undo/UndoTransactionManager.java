@@ -1,6 +1,9 @@
-package mysql.core.transaction;
+package mysql.core.transaction.undo;
 
 import mysql.core.EngineContext;
+import mysql.core.transaction.Transaction;
+import mysql.core.transaction.TransactionException;
+import mysql.core.transaction.TransactionManager;
 
 public class UndoTransactionManager implements TransactionManager {
     private long nextId = 1;

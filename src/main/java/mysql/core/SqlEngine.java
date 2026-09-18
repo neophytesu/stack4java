@@ -6,7 +6,7 @@ import mysql.ast.parser.SqlParseException;
 import mysql.ast.parser.SqlParser;
 import mysql.ast.statement.DefineStatement;
 import mysql.ast.statement.Statement;
-import mysql.core.transaction.UndoTransactionManager;
+import mysql.core.transaction.undo.UndoTransactionManager;
 import mysql.core.transaction.TransactionManager;
 import mysql.storage.Catalog;
 
