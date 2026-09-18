@@ -102,4 +102,14 @@ public class MysqlUtil {
             }
         }
     }
+
+    public static void delColumn(List<Row> rows, int index) {
+        for (Row row : rows) {
+            Object[] old = row.getValues();
+            Object[] neu = new Object[old.length - 1];
+            System.arraycopy(old, 0, neu, 0, index);
+            System.arraycopy(old, index + 1, neu, index, old.length - index - 1);
+            row.setValues(neu);
+        }
+    }
 }

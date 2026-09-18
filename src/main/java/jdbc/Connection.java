@@ -14,4 +14,10 @@ public interface Connection extends AutoCloseable {
     void close();
 
     boolean isInTransaction();
+
+    Savepoint setSavepoint(String name);
+
+    void rollback(Savepoint savepoint);
+
+    void releaseSavepoint(Savepoint savepoint);
 }

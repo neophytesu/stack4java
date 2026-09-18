@@ -3,6 +3,7 @@ package spring;
 import http.HttpServer;
 import jdbc.DataSource;
 import jdbc.support.PooledDataSource;
+import jdbc.template.JdbcTemplate;
 import mysql.config.SqlEngineBootstrap;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
@@ -33,13 +34,15 @@ public class AppStarter {
                 return bean;
             }
         });
-        factory.register(new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app"));
+        DataSource ds = new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app");
+        factory.register(ds);
+        factory.register(new JdbcTemplate(ds));
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
         factory.addAdvisors(List.of(
                 new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
-                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor((DataSource) factory.getBean(DataSource.class)))));
+                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor(ds))));
         DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
         HttpServer server = new HttpServer(8080);
         server.addServlet("/api/*", dispatcherServlet, "dispatcher");

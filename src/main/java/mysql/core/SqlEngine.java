@@ -49,8 +49,8 @@ public class SqlEngine {
     public SqlPreparedStatement prepare(String sql) {
         ParsedSql parsed = parser.parse(sql);
         Statement stmt = parsed.statement();
-        if (stmt instanceof DefineStatement) {
-            throw new SqlParseException("DDL 不支持预处理");
+        if (stmt instanceof DefineStatement || stmt instanceof TransactionStatement) {
+            throw new SqlParseException("DDL/事务语句 不支持预处理");
         }
         return new SqlPreparedStatement(stmt, parsed.paramCount(), executor);
     }

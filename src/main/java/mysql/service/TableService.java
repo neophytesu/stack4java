@@ -82,13 +82,7 @@ public class TableService {
         }
         columns.remove(idx);
         context.recordUndo(new DropColumnUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), idx, dropped, pkIdx, snapshotRows, cells));
-        for (Row row : table.getRows()) {
-            Object[] old = row.getValues();
-            Object[] neu = new Object[old.length - 1];
-            System.arraycopy(old, 0, neu, 0, idx);
-            System.arraycopy(old, idx + 1, neu, idx, old.length - idx - 1);
-            row.setValues(neu);
-        }
+        MysqlUtil.delColumn(table.getRows(), idx);
         if (pkIdx != null && pkIdx > idx) {
             table.setPrimaryIdx(pkIdx - 1);
         }
