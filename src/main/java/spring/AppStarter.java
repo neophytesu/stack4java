@@ -4,8 +4,7 @@ import http.HttpServer;
 import jdbc.DataSource;
 import jdbc.support.PooledDataSource;
 import jdbc.template.JdbcTemplate;
-import mybatis.MapperProxy;
-import mybatis.mapper.UserMapper;
+import mybatis.MapperScanner;
 import mysql.config.SqlEngineBootstrap;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
@@ -17,7 +16,6 @@ import spring.core.DefaultBeanFactory;
 import mvc.DispatcherServlet;
 import spring.ioc.bean.lifecycle.BeanPostProcessor;
 
-import java.lang.reflect.Proxy;
 import java.util.List;
 
 public class AppStarter {
@@ -41,11 +39,7 @@ public class AppStarter {
         factory.register(ds);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(ds);
         factory.register(jdbcTemplate);
-        Object mapper = Proxy.newProxyInstance(
-                UserMapper.class.getClassLoader(),
-                new Class[]{UserMapper.class},
-                new MapperProxy(jdbcTemplate));
-        factory.register(UserMapper.class, mapper);
+        new MapperScanner(factory).scan("mybatis.mapper");
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }

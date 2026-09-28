@@ -21,6 +21,10 @@ public class ClassScanner {
     private final List<Class<? extends Annotation>> beanTypeAnnotations = List.of(Bean.class, Controller.class, Service.class);
 
     List<Class<?>> scanPackage(String basePackage) throws Exception {
+        return loadPackage(basePackage).stream().filter(clazz -> beanTypeAnnotations.stream().anyMatch(clazz::isAnnotationPresent)).toList();
+    }
+
+    public List<Class<?>> loadPackage(String basePackage) throws Exception {
         String basePath = basePackage.replace(".", "/");
         ClassLoader cl = this.getClass().getClassLoader();
         URL url = cl.getResource(basePath);
@@ -37,9 +41,7 @@ public class ClassScanner {
                             String className = packagePath.relativize(path).toString().replace("\\", ".").replace("/", ".").replace(".class", "");
                             try {
                                 Class<?> clazz = Class.forName(basePackage + "." + className, false, cl);
-                                if (isBean(clazz)) {
-                                    classes.add(clazz);
-                                }
+                                classes.add(clazz);
                             } catch (ClassNotFoundException e) {
                                 throw new RuntimeException(e);
                             }
@@ -57,9 +59,7 @@ public class ClassScanner {
                         String className = jarEntry.getName().replace(".class", "").replace("/", ".");
                         try {
                             Class<?> clazz = Class.forName(className, false, cl);
-                            if (isBean(clazz)) {
-                                classes.add(clazz);
-                            }
+                            classes.add(clazz);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -69,7 +69,4 @@ public class ClassScanner {
         return classes;
     }
 
-    private boolean isBean(Class<?> clazz) {
-        return beanTypeAnnotations.stream().anyMatch(clazz::isAnnotationPresent);
-    }
 }
