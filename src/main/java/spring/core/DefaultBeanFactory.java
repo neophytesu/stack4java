@@ -52,11 +52,22 @@ public class DefaultBeanFactory {
         beanPostProcessors.add(beanPostProcessor);
     }
 
-    public void register(Class<?> type) {
+    public void register(Class<?> type, Object instance) {
         if (closed) {
             throw new IllegalStateException("工厂已关闭！");
         }
-        beanDefinitionRegistry.registerBeanDefinition(type);
+        if (!type.isInstance(instance)) {
+            throw new IllegalArgumentException(instance + " 不是 " + type.getName());
+        }
+        String beanName = type.getName();
+        BeanDefinition def = BeanDefinition.builder()
+                .beanName(beanName)
+                .beanClass(type)
+                .scope(BeanScope.SINGLETON)
+                .build();
+        beanDefinitionRegistry.registerBeanDefinition(beanName, def);
+        singletonObjects.put(beanName, instance);
+        registerDisposableBeanIfNecessary(beanName, instance);
     }
 
     public void close() throws Exception {
@@ -72,6 +83,13 @@ public class DefaultBeanFactory {
         beanDefinitionRegistry.registerBeanDefinition(clazz);
         singletonObjects.put(clazz.getName(), instance);
         registerDisposableBeanIfNecessary(clazz.getName(), instance);
+    }
+
+    public void register(Class<?> type) {
+        if (closed) {
+            throw new IllegalStateException("工厂已关闭！");
+        }
+        beanDefinitionRegistry.registerBeanDefinition(type);
     }
 
     public Object getBean(String beanName) throws Exception {

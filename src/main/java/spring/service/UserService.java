@@ -1,6 +1,7 @@
 package spring.service;
 
 import mvc.dto.User;
+import mybatis.mapper.UserMapper;
 import spring.di.annotation.Autowired;
 import spring.service.annotations.Service;
 import spring.service.annotations.Transactional;
@@ -11,15 +12,19 @@ import java.util.List;
 public class UserService {
 
     @Autowired
-    private UserRepository userRepository;
+    private UserMapper userMapper;
 
     public List<User> listUsers() {
-        return userRepository.findAll();
+        return userMapper.findAll();
     }
 
     public User getUser(String idStr) {
         int id = parseId(idStr);
-        return userRepository.findById(id).orElseThrow(() -> new RuntimeException("用户不存在：" + id));
+        User user = userMapper.findById(id);
+        if (user == null) {
+            throw new RuntimeException("用户不存在：" + id);
+        }
+        return user;
     }
 
     public User createUser(User request) {
@@ -29,22 +34,29 @@ public class UserService {
         if (request.age() == null) {
             throw new RuntimeException("age不能为空");
         }
-        return userRepository.insert(request.name(), request.age());
+        userMapper.insert(request.name(), request.age());
+        return userMapper.findLast();
     }
 
     @Transactional
     public User updateUser(String idStr, User request) {
         int id = parseId(idStr);
-        userRepository.findById(id).orElseThrow(() -> new RuntimeException("用户不存在：" + id));
-        userRepository.update(id, request.name(), request.age());
-        return userRepository.findById(id).orElseThrow();
+        User user = userMapper.findById(id);
+        if (user == null) {
+            throw new RuntimeException("用户不存在：" + id);
+        }
+        userMapper.update(id, request.name(), request.age());
+        return userMapper.findById(id);
     }
 
     @Transactional
     public boolean deleteUser(String idStr) {
         int id = parseId(idStr);
-        userRepository.findById(id).orElseThrow(() -> new RuntimeException("用户不存在：" + id));
-        return userRepository.deleteById(id);
+        User user = userMapper.findById(id);
+        if (user == null) {
+            throw new RuntimeException("用户不存在：" + id);
+        }
+        return userMapper.deleteById(id) > 0;
     }
 
     private int parseId(String idStr) {
@@ -57,19 +69,25 @@ public class UserService {
 
     @Transactional
     public boolean transferAge(int fromId, int toID, int amount, boolean failAfterDebit) {
-        userRepository.findById(fromId).orElseThrow();
-        userRepository.findById(toID).orElseThrow();
+        User user = userMapper.findById(fromId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在：" + fromId);
+        }
+        user = userMapper.findById(toID);
+        if (user == null) {
+            throw new RuntimeException("用户不存在：" + toID);
+        }
         if (amount <= 0) {
             throw new IllegalStateException("传递数不能小于0");
         }
-        boolean ok = userRepository.adjustAge(fromId, -amount);
+        boolean ok = userMapper.adjustAge(fromId, -amount) > 0;
         if (!ok) {
             throw new RuntimeException("传递失败");
         }
         if (failAfterDebit) {
             throw new RuntimeException("模拟中途失败");
         }
-        ok = userRepository.adjustAge(toID, amount);
+        ok = userMapper.adjustAge(toID, amount) > 0;
         if (!ok) {
             throw new RuntimeException("传递失败");
         }
