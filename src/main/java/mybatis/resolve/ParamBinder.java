@@ -30,13 +30,27 @@ public class ParamBinder {
             String path = matcher.group(1);
             String index = matcher.group(2);
             Object value = index == null ? resolve(named, path) : atIndex(named, path, Integer.parseInt(index));
-            jdbcArgs.add(value);
+
             jdbcSql.append(sql, last, matcher.start());
-            jdbcSql.append('?');
+            if (index == null && value instanceof List<?> list) {
+                appendList(jdbcSql, jdbcArgs, list);
+            } else {
+                jdbcArgs.add(value);
+                jdbcSql.append('?');
+            }
             last = matcher.end();
         }
         jdbcSql.append(sql.substring(last));
         return new BoundSql(jdbcSql.toString(), jdbcArgs.toArray());
+    }
+
+    private static void appendList(StringBuilder jdbcSql, List<Object> jdbcArgs, List<?> list) {
+        if (list == null || list.isEmpty()) {
+            throw new IllegalArgumentException("列表参数不能为空");
+        }
+        jdbcSql.append("?");
+        jdbcArgs.addAll(list);
+        jdbcSql.repeat(",?", Math.max(0, list.size() - 1));
     }
 
     private static Object atIndex(Map<String, Object> named, String path, int index) {
