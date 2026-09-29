@@ -69,16 +69,24 @@ public class MapperProxy implements InvocationHandler {
         Delete deleteAnn = method.getAnnotation(Delete.class);
         SelectProvider selectProviderAnn = method.getAnnotation(SelectProvider.class);
         int commands = countNonNull(selectAnn, insertAnn, updateAnn, deleteAnn, selectProviderAnn);
-        if (commands == 0) {
-            throw new IllegalStateException(method + " 缺少 SQL 注解");
-        }
         if (commands > 1) {
             throw new IllegalStateException(method + " 不能同时标多种 SQL 注解");
         }
-        String rawSql = null;
+        XmlStatement xml = sqlSessionFactory.findXml(method.getDeclaringClass(), method.getName());
+        if (commands == 1 && xml != null) {
+            throw new IllegalStateException(method + " 不能同时使用注解和 XML ");
+        }
+        if (commands == 0 && xml == null) {
+            throw new IllegalStateException(method + " 缺少 SQL 注解或 XML");
+        }
+        String rawSql;
         Method sqlProviderMethod = null;
         boolean select;
-        if (selectProviderAnn != null) {
+        if (xml != null) {
+            rawSql = "<script>" + xml.rawSql() + "</script>";
+            select = xml.select();
+        } else if (selectProviderAnn != null) {
+            rawSql = null;
             select = true;
             sqlProviderMethod = resolveProvider(method, selectProviderAnn);
         } else {

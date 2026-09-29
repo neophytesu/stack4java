@@ -31,23 +31,14 @@ public interface UserMapper {
     List<User> findByName(@Param("name") String name);
 
     @Select("""
-        <script>
-        SELECT * FROM user WHERE id IN
-        <foreach collection="ids" item="id" open="(" separator="," close=")">
-          #{id}
-        </foreach>
-        </script>
-        """)
-    List<User> findByIds(@Param("ids") List<Integer> ids);
-
-    @Select("""
             <script>
-            SELECT * FROM user
-            <where>
-              <if test="name != null">AND name = #{name}</if>
-              <if test="minAge != null">AND age >= #{minAge}</if>
-            </where>
+            SELECT * FROM user WHERE id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+              #{id}
+            </foreach>
             </script>
             """)
+    List<User> findByIds(@Param("ids") List<Integer> ids);
+
     List<User> search(@Param("name") String name, @Param("minAge") Integer minAge);
 }

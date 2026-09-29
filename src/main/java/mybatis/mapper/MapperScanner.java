@@ -22,6 +22,7 @@ public class MapperScanner {
             if (!clazz.isAnnotationPresent(Mapper.class)) {
                 continue;
             }
+            sqlSessionFactory.loadXml(clazz);
             factory.register(clazz, sqlSessionFactory.getMapper(clazz));
         }
     }
