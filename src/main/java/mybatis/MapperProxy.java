@@ -1,8 +1,6 @@
 package mybatis;
 
 import jdbc.RowMapper;
-import jdbc.template.JdbcTemplate;
-import mvc.dto.User;
 import mybatis.annotation.Delete;
 import mybatis.annotation.Insert;
 import mybatis.annotation.Select;
@@ -15,10 +13,10 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 public class MapperProxy implements InvocationHandler {
-    private final JdbcTemplate jdbcTemplate;
+    private final SqlSession sqlSession;
 
-    public MapperProxy(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public MapperProxy(SqlSession sqlSession) {
+        this.sqlSession = sqlSession;
     }
 
     @Override
@@ -33,11 +31,11 @@ public class MapperProxy implements InvocationHandler {
         if (method.getAnnotation(Select.class) != null) {
             Class<?> returnType = method.getReturnType();
             if (returnType == List.class) {
-                return jdbcTemplate.query(sql, param, rowMapper(elementType(method)));
+                return sqlSession.getJdbcTemplate().query(sql, param, rowMapper(elementType(method)));
             }
-            return jdbcTemplate.queryForObject(sql, param, rowMapper(returnType));
+            return sqlSession.getJdbcTemplate().queryForObject(sql, param, rowMapper(returnType));
         }
-        return jdbcTemplate.update(sql, param);
+        return sqlSession.getJdbcTemplate().update(sql, param);
     }
 
     private String sqlOf(Method method) {
@@ -61,10 +59,7 @@ public class MapperProxy implements InvocationHandler {
     }
 
     private RowMapper<?> rowMapper(Class<?> returnType) {
-        if (returnType == User.class) {
-            return (rs, _) -> new User(rs.getInt("id"), rs.getString("name"), rs.getInt("age"));
-        }
-        throw new IllegalStateException("暂不支持：" + returnType);
+        return new PojoRowMapper<>(returnType);
     }
 
     private Class<?> elementType(Method method) {

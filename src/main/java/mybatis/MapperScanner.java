@@ -1,11 +1,8 @@
 package mybatis;
 
-import jdbc.template.JdbcTemplate;
 import mybatis.annotation.Mapper;
 import spring.core.DefaultBeanFactory;
 import spring.ioc.bean.ClassScanner;
-
-import java.lang.reflect.Proxy;
 
 public class MapperScanner {
     private final DefaultBeanFactory factory;
@@ -15,7 +12,8 @@ public class MapperScanner {
     }
 
     public void scan(String basePackage) throws Exception {
-        JdbcTemplate jdbcTemplate = (JdbcTemplate) factory.getBean(JdbcTemplate.class);
+        SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) factory.getBean(SqlSessionFactory.class);
+        SqlSession sqlSession = sqlSessionFactory.openSession();
         ClassScanner scanner = new ClassScanner();
         for (Class<?> clazz : scanner.loadPackage(basePackage)) {
             if (!clazz.isInterface()) {
@@ -24,8 +22,7 @@ public class MapperScanner {
             if (!clazz.isAnnotationPresent(Mapper.class)) {
                 continue;
             }
-            Object proxy = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, new MapperProxy(jdbcTemplate));
-            factory.register(clazz, proxy);
+            factory.register(clazz, sqlSession.getMapper(clazz));
         }
     }
 }

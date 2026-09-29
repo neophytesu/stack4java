@@ -5,6 +5,7 @@ import jdbc.DataSource;
 import jdbc.support.PooledDataSource;
 import jdbc.template.JdbcTemplate;
 import mybatis.MapperScanner;
+import mybatis.SqlSessionFactory;
 import mysql.config.SqlEngineBootstrap;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
@@ -39,6 +40,7 @@ public class AppStarter {
         factory.register(ds);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(ds);
         factory.register(jdbcTemplate);
+        factory.register(new SqlSessionFactory(jdbcTemplate));
         new MapperScanner(factory).scan("mybatis.mapper");
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
