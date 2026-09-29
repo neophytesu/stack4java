@@ -7,6 +7,7 @@ import mysql.core.SqlEngine;
 import mysql.core.SqlPreparedStatement;
 import mysql.core.SqlResult;
 import mysql.storage.Column;
+import mysql.storage.Row;
 import mysql.storage.Table;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class SqlEnginePreparedStatement implements PreparedStatement {
     private final SqlEngine sqlEngine;
     private boolean closed;
     private final SqlEngineConnection connection;
+    private Integer generatedKey;
 
     public SqlEnginePreparedStatement(SqlPreparedStatement delegate, SqlEngine sqlEngine, SqlEngineConnection connection) {
         this.delegate = delegate;
@@ -82,7 +84,23 @@ public class SqlEnginePreparedStatement implements PreparedStatement {
         if (result.isQuery()) {
             throw new JdbcException("不是更新语句");
         }
+        this.generatedKey = null;
+        if (result.executeResult().code() == 12L) {
+            this.generatedKey = sqlEngine.getContext().getLastInsertId();
+        }
         return result.executeResult().affectedRows();
+    }
+
+    @Override
+    public ResultSet getGeneratedKeys() {
+        checkOpen();
+        List<String> cols = List.of("GENERATED_KEY");
+        if (generatedKey == null) {
+            return new SqlEngineResultSet(cols, List.of());
+        }
+        Row row = new Row();
+        row.setValues(new Object[]{generatedKey});
+        return new SqlEngineResultSet(cols, List.of(row));
     }
 
     @Override

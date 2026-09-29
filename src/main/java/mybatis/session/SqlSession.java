@@ -68,6 +68,15 @@ public class SqlSession {
         return jdbcTemplate.update(sql, args);
     }
 
+    public int doUpdateAndReturnKey(String sql, Object[] args) {
+        localCache.clear();
+        return jdbcTemplate.updateAndReturnKey(sql, args);
+    }
+
+    public int updateAndReturnKey(String sql, Object[] args) {
+        return (Integer) invoke("updateAndReturnKey", new Object[]{sql, args});
+    }
+
     public int update(String sql, Object[] args) {
         return (Integer) invoke("update", new Object[]{sql, args});
     }

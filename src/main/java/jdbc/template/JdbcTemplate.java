@@ -47,11 +47,27 @@ public class JdbcTemplate {
         return list.getFirst();
     }
 
-    public int update(String sql, Object... args) {
+    public int update(String sql, Object[] args) {
         Connection connection = getConnection();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             bind(ps, args);
             return ps.executeUpdate();
+        } finally {
+            release(connection);
+        }
+    }
+
+    public int updateAndReturnKey(String sql, Object[] args) {
+        Connection connection = getConnection();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            bind(ps, args);
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (!rs.next()) {
+                    throw new JdbcException("没有生成主键");
+                }
+                return ((Number) rs.getObject(1)).intValue();
+            }
         } finally {
             release(connection);
         }

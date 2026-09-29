@@ -44,13 +44,18 @@ public class MapperProxy implements InvocationHandler {
             raw = (String) mappedStatement.sqlProvider().invoke(null, args);
         }
         BoundSql bound = ParamBinder.bind(method, raw, args);
+        String sql = bound.jdbcSql();
+        Object[] boundArg = bound.args();
         if (!mappedStatement.select()) {
-            return sqlSession.update(bound.jdbcSql(), bound.args());
+            if (mappedStatement.useGeneratedKeys()) {
+                return sqlSession.updateAndReturnKey(sql, boundArg);
+            }
+            return sqlSession.update(sql, boundArg);
         }
         if (mappedStatement.many()) {
-            return sqlSession.selectList(bound.jdbcSql(), bound.args(), mappedStatement.rowMapper());
+            return sqlSession.selectList(sql, boundArg, mappedStatement.rowMapper());
         }
-        return sqlSession.selectOne(bound.jdbcSql(), bound.args(), mappedStatement.rowMapper());
+        return sqlSession.selectOne(sql, boundArg, mappedStatement.rowMapper());
     }
 
     private MappedStatement parse(Method method) {
@@ -78,7 +83,12 @@ public class MapperProxy implements InvocationHandler {
         }
         boolean many = method.getReturnType() == List.class;
         Class<?> mappedType = many ? elementType(method) : method.getReturnType();
-        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType));
+        Options options = method.getAnnotation(Options.class);
+        boolean useGeneratedKeys = options != null && options.useGeneratedKeys();
+        if (useGeneratedKeys && select) {
+            throw new IllegalStateException(method + " 查询不能 useGeneratedKeys");
+        }
+        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType), useGeneratedKeys);
     }
 
     private Method resolveProvider(Method mapperMethod, SelectProvider ann) {

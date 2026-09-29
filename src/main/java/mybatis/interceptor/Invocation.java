@@ -14,6 +14,7 @@ public record Invocation(SqlSession target, String name, Object[] args, List<Int
             case "selectOne" -> target.doSelectOne((String) args[0], (Object[]) args[1], (RowMapper<?>) args[2]);
             case "selectList" -> target.doSelectList((String) args[0], (Object[]) args[1], (RowMapper<?>) args[2]);
             case "update" -> target.doUpdate((String) args[0], (Object[]) args[1]);
+            case "updateAndReturnKey" -> target.doUpdateAndReturnKey((String) args[0], (Object[]) args[1]);
             default -> throw new IllegalStateException(name);
         };
     }

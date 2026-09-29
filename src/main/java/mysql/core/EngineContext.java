@@ -15,6 +15,7 @@ import mysql.storage.Table;
 public class EngineContext {
     private Catalog catalog;
     private Transaction activeTransaction;
+    private Integer lastInsertId;
 
     public EngineContext(Catalog catalog) {
         this.catalog = catalog;

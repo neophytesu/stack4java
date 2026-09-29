@@ -34,8 +34,8 @@ public class UserService {
         if (request.age() == null) {
             throw new RuntimeException("age不能为空");
         }
-        userMapper.insert(request.name(), request.age());
-        return userMapper.findLast();
+        int id = userMapper.insert(request.name(), request.age());
+        return userMapper.findById(id);
     }
 
     @Transactional

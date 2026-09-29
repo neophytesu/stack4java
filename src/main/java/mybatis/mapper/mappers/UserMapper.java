@@ -14,10 +14,8 @@ public interface UserMapper {
     @Select("SELECT * FROM user WHERE id = #{id}")
     User findById(@Param("id") int id);
 
-    @Select("SELECT * FROM user ORDER BY id DESC LIMIT 1")
-    User findLast();
-
     @Insert("INSERT INTO user (name, age) VALUES (#{name}, #{age})")
+    @Options(useGeneratedKeys = true)
     int insert(@Param("name") String name, @Param("age") int age);
 
     @Update("UPDATE user SET age = age + #{delta} WHERE id = #{id}")

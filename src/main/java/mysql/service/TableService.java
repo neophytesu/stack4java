@@ -114,6 +114,10 @@ public class TableService {
         }
         table.getRows().addAll(pending);
         table.setNextAutoIncrement(next);
+        if (pkIdx != null && table.getColumns().get(pkIdx).isAutoIncrement() && !pending.isEmpty()) {
+            Object pk = pending.getFirst().getValues()[pkIdx];
+            context.setLastInsertId(((Number) pk).intValue());
+        }
         for (Row row : pending) {
             context.recordUndo(new InsertUndo(context.getCurrentSchema().getSchemaName(), table.getTableName(), oldNext, row));
         }

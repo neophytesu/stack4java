@@ -14,4 +14,6 @@ public interface PreparedStatement extends AutoCloseable {
     ResultSet executeQuery();
 
     int executeUpdate();
+
+    ResultSet getGeneratedKeys();
 }
