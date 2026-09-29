@@ -10,4 +10,6 @@ public interface ResultSet extends AutoCloseable {
     Object getObject(String column);
 
     void close();
+
+    Object getObject(int index);
 }

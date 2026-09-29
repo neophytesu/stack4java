@@ -1,6 +1,9 @@
-package mybatis;
+package mybatis.mapper;
 
 import jdbc.RowMapper;
+import mybatis.resolve.BoundSql;
+import mybatis.resolve.ParamBinder;
+import mybatis.session.SqlSession;
 import mybatis.annotation.Delete;
 import mybatis.annotation.Insert;
 import mybatis.annotation.Select;
@@ -59,7 +62,14 @@ public class MapperProxy implements InvocationHandler {
     }
 
     private RowMapper<?> rowMapper(Class<?> returnType) {
+        if (isScalar(returnType)) {
+            return new ScalarRowMapper<>(returnType);
+        }
         return new PojoRowMapper<>(returnType);
+    }
+
+    private boolean isScalar(Class<?> returnType) {
+        return returnType.isPrimitive() || returnType == String.class || returnType == Integer.class || returnType == Long.class;
     }
 
     private Class<?> elementType(Method method) {

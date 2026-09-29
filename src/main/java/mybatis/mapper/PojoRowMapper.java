@@ -1,4 +1,4 @@
-package mybatis;
+package mybatis.mapper;
 
 import jdbc.ResultSet;
 import jdbc.RowMapper;

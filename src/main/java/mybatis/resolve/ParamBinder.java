@@ -1,4 +1,4 @@
-package mybatis;
+package mybatis.resolve;
 
 import mybatis.annotation.Param;
 

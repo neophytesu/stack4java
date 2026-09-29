@@ -1,7 +1,8 @@
-package mybatis;
+package mybatis.session;
 
 import jdbc.template.JdbcTemplate;
 import lombok.Getter;
+import mybatis.mapper.MapperProxy;
 
 import java.lang.reflect.Proxy;
 

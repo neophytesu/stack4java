@@ -47,4 +47,12 @@ public class SqlEngineResultSet implements ResultSet {
     public void close() {
         closed = true;
     }
+
+    @Override
+    public Object getObject(int index) {
+        if (index < 1 || index > columnNames.size()) {
+            throw new JdbcException("列下标越界：" + index);
+        }
+        return rows.get(cursor).getValues()[index - 1];
+    }
 }

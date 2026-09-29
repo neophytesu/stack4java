@@ -1,4 +1,4 @@
-package mybatis;
+package mybatis.session;
 
 import jdbc.template.JdbcTemplate;
 

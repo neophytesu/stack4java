@@ -1,6 +1,8 @@
-package mybatis;
+package mybatis.mapper;
 
 import mybatis.annotation.Mapper;
+import mybatis.session.SqlSession;
+import mybatis.session.SqlSessionFactory;
 import spring.core.DefaultBeanFactory;
 import spring.ioc.bean.ClassScanner;
 
