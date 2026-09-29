@@ -28,11 +28,7 @@ public class ParamBinder {
         int last = 0;
         while (matcher.find()) {
             jdbcSql.append(sql, last, matcher.start());
-            String name = matcher.group(1);
-            if (!named.containsKey(name)) {
-                throw new IllegalArgumentException("找不到参数：" + name);
-            }
-            jdbcArgs.add(resolve(named, name));
+            jdbcArgs.add(resolve(named, matcher.group(1)));
             jdbcSql.append('?');
             last = matcher.end();
         }

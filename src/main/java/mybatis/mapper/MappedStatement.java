@@ -2,5 +2,7 @@ package mybatis.mapper;
 
 import jdbc.RowMapper;
 
-public record MappedStatement(String rawSql, boolean select, boolean many, RowMapper<?> rowMapper) {
+import java.lang.reflect.Method;
+
+public record MappedStatement(String rawSql, Method sqlProvider, boolean select, boolean many, RowMapper<?> rowMapper) {
 }
