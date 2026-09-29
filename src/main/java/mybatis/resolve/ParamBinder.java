@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ParamBinder {
-    private static final Pattern PLACEHOLDER = Pattern.compile("#\\{([\\w.]+)}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("#\\{([\\w.]+)(?:\\[(\\d+)])?}");
 
     public static BoundSql bind(Method method, String sql, Object[] args) {
         Parameter[] parameters = method.getParameters();
@@ -27,13 +27,33 @@ public class ParamBinder {
         List<Object> jdbcArgs = new ArrayList<>();
         int last = 0;
         while (matcher.find()) {
+            String path = matcher.group(1);
+            String index = matcher.group(2);
+            Object value = index == null ? resolve(named, path) : atIndex(named, path, Integer.parseInt(index));
+            jdbcArgs.add(value);
             jdbcSql.append(sql, last, matcher.start());
-            jdbcArgs.add(resolve(named, matcher.group(1)));
             jdbcSql.append('?');
             last = matcher.end();
         }
         jdbcSql.append(sql.substring(last));
         return new BoundSql(jdbcSql.toString(), jdbcArgs.toArray());
+    }
+
+    private static Object atIndex(Map<String, Object> named, String path, int index) {
+        if (path.contains(".")) {
+            throw new IllegalArgumentException("这一版不支持 #{a.b[0]}：" + path);
+        }
+        if (!named.containsKey(path)) {
+            throw new IllegalArgumentException("找不到参数：" + path);
+        }
+        Object raw = named.get(path);
+        if (!(raw instanceof List<?> list)) {
+            throw new IllegalArgumentException(path + " 不是 List");
+        }
+        if (index < 0 || index >= list.size()) {
+            throw new IllegalArgumentException(path + " 下标越界：" + index);
+        }
+        return list.get(index);
     }
 
     private static Object resolve(Map<String, Object> named, String path) {

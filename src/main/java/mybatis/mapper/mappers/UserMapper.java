@@ -31,4 +31,7 @@ public interface UserMapper {
 
     @SelectProvider(type = UserSql.class, method = "byName")
     List<User> findByName(@Param("name") String name);
+
+    @SelectProvider(type = UserSql.class, method = "byIds")
+    List<User> findByIds(@Param("ids") List<Integer> ids);
 }
