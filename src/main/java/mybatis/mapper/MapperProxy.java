@@ -3,6 +3,7 @@ package mybatis.mapper;
 import jdbc.RowMapper;
 import mybatis.annotation.*;
 import mybatis.resolve.BoundSql;
+import mybatis.resolve.DynamicSql;
 import mybatis.resolve.ParamBinder;
 import mybatis.session.SqlSession;
 import mybatis.session.SqlSessionFactory;
@@ -10,6 +11,7 @@ import mybatis.session.SqlSessionHolder;
 
 import java.lang.reflect.*;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MapperProxy implements InvocationHandler {
@@ -43,6 +45,8 @@ public class MapperProxy implements InvocationHandler {
         if (mappedStatement.sqlProvider() != null) {
             raw = (String) mappedStatement.sqlProvider().invoke(null, args);
         }
+        Map<String, Object> named = ParamBinder.namedArgs(method, args);
+        raw = DynamicSql.render(raw, named);
         BoundSql bound = ParamBinder.bind(method, raw, args);
         String sql = bound.jdbcSql();
         Object[] boundArg = bound.args();

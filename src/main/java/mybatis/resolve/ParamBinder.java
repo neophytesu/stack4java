@@ -101,7 +101,7 @@ public class ParamBinder {
         throw new IllegalArgumentException("没有属性：" + name);
     }
 
-    private static Map<String, Object> namedArgs(Method method, Object[] values) {
+    public static Map<String, Object> namedArgs(Method method, Object[] values) {
         Parameter[] parameters = method.getParameters();
         if (parameters.length == 0) {
             return Map.of();

@@ -30,6 +30,24 @@ public interface UserMapper {
     @SelectProvider(type = UserSql.class, method = "byName")
     List<User> findByName(@Param("name") String name);
 
-    @Select("SELECT * FROM user WHERE id IN (#{ids})")
+    @Select("""
+        <script>
+        SELECT * FROM user WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+          #{id}
+        </foreach>
+        </script>
+        """)
     List<User> findByIds(@Param("ids") List<Integer> ids);
+
+    @Select("""
+            <script>
+            SELECT * FROM user
+            <where>
+              <if test="name != null">AND name = #{name}</if>
+              <if test="minAge != null">AND age >= #{minAge}</if>
+            </where>
+            </script>
+            """)
+    List<User> search(@Param("name") String name, @Param("minAge") Integer minAge);
 }
