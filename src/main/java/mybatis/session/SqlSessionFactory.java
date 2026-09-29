@@ -3,7 +3,9 @@ package mybatis.session;
 import jdbc.template.JdbcTemplate;
 import mybatis.interceptor.Interceptor;
 import mybatis.interceptor.InterceptorChain;
+import mybatis.mapper.MapperProxy;
 
+import java.lang.reflect.Proxy;
 import java.util.List;
 
 public class SqlSessionFactory {
@@ -17,5 +19,13 @@ public class SqlSessionFactory {
 
     public SqlSession openSession() {
         return new SqlSession(jdbcTemplate, new InterceptorChain(interceptors));
+    }
+
+    public <T> T getMapper(Class<T> type) {
+        return (T) Proxy.newProxyInstance(
+                type.getClassLoader(),
+                new Class[]{type},
+                new MapperProxy(this)
+        );
     }
 }

@@ -3,14 +3,19 @@ package spring.aop.interceptor;
 import jdbc.Connection;
 import jdbc.DataSource;
 import jdbc.support.ConnectionHolder;
+import mybatis.session.SqlSession;
+import mybatis.session.SqlSessionFactory;
+import mybatis.session.SqlSessionHolder;
 
 import java.lang.reflect.InvocationTargetException;
 
 public class TransactionalInterceptor implements MethodInterceptor {
     private final DataSource dataSource;
+    private final SqlSessionFactory sqlSessionFactory;
 
-    public TransactionalInterceptor(DataSource dataSource) {
+    public TransactionalInterceptor(DataSource dataSource, SqlSessionFactory sqlSessionFactory) {
         this.dataSource = dataSource;
+        this.sqlSessionFactory = sqlSessionFactory;
     }
 
     @Override
@@ -18,17 +23,21 @@ public class TransactionalInterceptor implements MethodInterceptor {
         Connection conn = dataSource.getConnection();
         ConnectionHolder.bind(conn);
         conn.setAutoCommit(false);
+        SqlSession session = sqlSessionFactory.openSession();
+        SqlSessionHolder.bind(session);
         try {
             Object result = invocation.proceed();
             commitIfActive(conn);
             return result;
         } catch (Exception e) {
             rollbackIfActive(conn);
-            if (e instanceof InvocationTargetException t){
+            if (e instanceof InvocationTargetException t) {
                 throw new RuntimeException(t.getTargetException());
             }
             throw new RuntimeException(e);
         } finally {
+            session.close();
+            SqlSessionHolder.clear();
             ConnectionHolder.clear();
             conn.close();
         }

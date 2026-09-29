@@ -5,20 +5,19 @@ import mybatis.annotation.*;
 import mybatis.resolve.BoundSql;
 import mybatis.resolve.ParamBinder;
 import mybatis.session.SqlSession;
+import mybatis.session.SqlSessionFactory;
+import mybatis.session.SqlSessionHolder;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import java.lang.reflect.*;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MapperProxy implements InvocationHandler {
-    private final SqlSession sqlSession;
+    private final SqlSessionFactory sqlSessionFactory;
     private final ConcurrentHashMap<Method, MappedStatement> statements = new ConcurrentHashMap<>();
 
-    public MapperProxy(SqlSession sqlSession) {
-        this.sqlSession = sqlSession;
+    public MapperProxy(SqlSessionFactory sqlSessionFactory) {
+        this.sqlSessionFactory = sqlSessionFactory;
     }
 
     @Override
@@ -26,6 +25,19 @@ public class MapperProxy implements InvocationHandler {
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(this, args);
         }
+        SqlSession bound = SqlSessionHolder.get();
+        if (bound != null) {
+            return execute(method, args, bound);
+        }
+        SqlSession session = sqlSessionFactory.openSession();
+        try {
+            return execute(method, args, session);
+        } finally {
+            session.close();
+        }
+    }
+
+    private Object execute(Method method, Object[] args, SqlSession sqlSession) throws IllegalAccessException, InvocationTargetException {
         MappedStatement mappedStatement = statements.computeIfAbsent(method, this::parse);
         String raw = mappedStatement.rawSql();
         if (mappedStatement.sqlProvider() != null) {

@@ -4,9 +4,7 @@ import jdbc.RowMapper;
 import jdbc.template.JdbcTemplate;
 import lombok.Getter;
 import mybatis.interceptor.InterceptorChain;
-import mybatis.mapper.MapperProxy;
 
-import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +21,10 @@ public class SqlSession {
         this.interceptorChain = interceptorChain;
     }
 
+    public void close() {
+        localCache.clear();
+    }
+
     private Object invoke(String name, Object[] args) {
         try {
             return interceptorChain.invoke(this, name, args);
@@ -31,14 +33,6 @@ public class SqlSession {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public <T> T getMapper(Class<T> type) {
-        return (T) Proxy.newProxyInstance(
-                type.getClassLoader(),
-                new Class[]{type},
-                new MapperProxy(this)
-        );
     }
 
     public <T> T selectOne(String sql, Object[] args, RowMapper<T> mapper) {

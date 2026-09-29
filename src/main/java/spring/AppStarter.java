@@ -40,15 +40,16 @@ public class AppStarter {
         DataSource ds = new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app");
         factory.register(ds);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(ds);
+        SqlSessionFactory sqlSessionFactory = new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor()));
         factory.register(jdbcTemplate);
-        factory.register(new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor())));
+        factory.register(sqlSessionFactory);
         new MapperScanner(factory).scan("mybatis.mapper");
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
         factory.addAdvisors(List.of(
                 new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
-                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor(ds))));
+                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor(ds, sqlSessionFactory))));
         DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
         HttpServer server = new HttpServer(8080);
         server.addServlet("/api/*", dispatcherServlet, "dispatcher");
