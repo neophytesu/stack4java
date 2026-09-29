@@ -4,6 +4,7 @@ import mybatis.annotation.Param;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,14 +21,7 @@ public class ParamBinder {
         if (parameters.length != values.length) {
             throw new IllegalArgumentException("参数个数对不上：" + method);
         }
-        Map<String, Object> named = new HashMap<>();
-        for (int i = 0; i < parameters.length; i++) {
-            Param param = parameters[i].getAnnotation(Param.class);
-            if (param == null) {
-                throw new IllegalStateException("参数缺少 @Param：" + method);
-            }
-            named.put(param.value(), values[i]);
-        }
+        Map<String, Object> named = namedArgs(method, values);
         Matcher matcher = PLACEHOLDER.matcher(sql);
         StringBuilder jdbcSql = new StringBuilder();
         List<Object> jdbcArgs = new ArrayList<>();
@@ -44,5 +38,42 @@ public class ParamBinder {
         }
         jdbcSql.append(sql.substring(last));
         return new BoundSql(jdbcSql.toString(), jdbcArgs.toArray());
+    }
+
+    private static Map<String, Object> namedArgs(Method method, Object[] values) {
+        Parameter[] parameters = method.getParameters();
+        if (parameters.length == 0) {
+            return Map.of();
+        }
+        boolean allParam = true;
+        for (Parameter p : parameters) {
+            if (p.getAnnotation(Param.class) == null) {
+                allParam = false;
+                break;
+            }
+        }
+        if (allParam) {
+            Map<String, Object> named = new HashMap<>();
+            for (int i = 0; i < parameters.length; i++) {
+                named.put(parameters[i].getAnnotation(Param.class).value(), values[i]);
+            }
+            return named;
+        }
+        if (parameters.length == 1 && values[0] != null && values[0].getClass().isRecord()) {
+            return fromRecord(values[0]);
+        }
+        throw new IllegalStateException("参数缺少 @Param，且不是单 record：" + method);
+    }
+
+    private static Map<String, Object> fromRecord(Object record) {
+        Map<String, Object> named = new HashMap<>();
+        for (RecordComponent component : record.getClass().getRecordComponents()) {
+            try {
+                named.put(component.getName(), component.getAccessor().invoke(record));
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return named;
     }
 }
