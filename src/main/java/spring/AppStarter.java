@@ -4,6 +4,7 @@ import http.HttpServer;
 import jdbc.DataSource;
 import jdbc.support.PooledDataSource;
 import jdbc.template.JdbcTemplate;
+import mybatis.interceptor.LogInterceptor;
 import mybatis.mapper.MapperScanner;
 import mybatis.session.SqlSessionFactory;
 import mysql.config.SqlEngineBootstrap;
@@ -40,7 +41,7 @@ public class AppStarter {
         factory.register(ds);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(ds);
         factory.register(jdbcTemplate);
-        factory.register(new SqlSessionFactory(jdbcTemplate));
+        factory.register(new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor())));
         new MapperScanner(factory).scan("mybatis.mapper");
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
