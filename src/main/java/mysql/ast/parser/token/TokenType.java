@@ -20,6 +20,7 @@ public enum TokenType {
     COMMA,
     LPAREN, RPAREN,
     EQ, NE, LT, LE, GT, GE,
+    IN,
     IS, NULL,
     AND, OR, NOT,
     PLUS, MINUS,

@@ -72,6 +72,8 @@ public class PlaceholderResolver {
             case AndExpr e -> new AndExpr(resolveExpr(e.left(), params), resolveExpr(e.right(), params));
             case OrExpr e -> new OrExpr(resolveExpr(e.left(), params), resolveExpr(e.right(), params));
             case IsNullExpr e -> e;
+            case InExpr e ->
+                    new InExpr(e.column(), e.values().stream().map(v -> resolveValue(v, params)).toList(), e.negated());
         };
     }
 

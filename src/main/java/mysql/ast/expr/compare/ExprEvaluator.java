@@ -15,7 +15,29 @@ public final class ExprEvaluator {
             case OrExpr e -> eval(e.left(), row, table) || eval(e.right(), row, table);
             case CompareExpr e -> evalCompare(e, row, table);
             case IsNullExpr e -> evalIsNull(e, row, table);
+            case InExpr e -> evalIn(e, row, table);
         };
+    }
+
+    private static boolean evalIn(InExpr e, Row row, Table table) {
+        int idx = columnIndex(table, e.column());
+        Column column = table.getColumns().get(idx);
+        Object cell = cell(row, idx);
+        if (cell == null) {
+            return false;
+        }
+        boolean hit = false;
+        for (Object value : e.values()) {
+            if (value == null) {
+                continue;
+            }
+            checkLiteral(column, value);
+            if (MysqlUtil.compare(cell, value, column.getColumnType(), CompareOp.EQ)) {
+                hit = true;
+                break;
+            }
+        }
+        return e.negated() != hit;
     }
 
     private static boolean evalIsNull(IsNullExpr e, Row row, Table table) {

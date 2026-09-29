@@ -28,4 +28,7 @@ public interface UserMapper {
 
     @Delete("DELETE FROM user WHERE id = #{id}")
     int deleteById(@Param("id") int id);
+
+    @SelectProvider(type = UserSql.class, method = "byName")
+    List<User> findByName(@Param("name") String name);
 }

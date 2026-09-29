@@ -9,12 +9,14 @@ public class MysqlTest {
 
     static void main() {
         SqlEngine sqlEngine = new SqlEngine(SqlEngineBootstrap.createCatalogAndInit());
+        sqlEngine.execute("USE app");
         String tableName = "user";
         String sql = """
                 INSERT INTO user VALUES (1, 'Alice', 20),(2, 'Bob', 30),(3, 'Dup', 25);
                 INSERT INTO user VALUES (NULL, 'Carol', 22);
                 SELECT * FROM user WHERE (age > 18 AND id = 1) AND name IS NOT NULL;
                 SELECT * FROM user WHERE age > 20 AND name = 'Bob';
+                SELECT * FROM user WHERE age IN (20);
                 UPDATE user SET age = 21 WHERE name = 'Alice';
                 DELETE FROM user WHERE age >= 25;
                 SELECT id, name FROM user;

@@ -4,6 +4,7 @@ import mysql.ast.expr.compare.*;
 import mysql.ast.expr.value.*;
 import mysql.ast.parser.SqlParseException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class TokenStream {
@@ -107,14 +108,29 @@ public class TokenStream {
             return inner;
         }
         String column = expectIdentifier();
-        if (match(TokenType.IS)) {
-            boolean negated = match(TokenType.NOT);
-            expect(TokenType.NULL);
-            return new IsNullExpr(column, negated);
+        boolean notIn;
+        if (match(TokenType.NOT) && check(TokenType.IN)) {
+            next();
+            notIn = true;
+        } else if (match(TokenType.IN)) {
+            notIn = false;
+        } else {
+            if (match(TokenType.IS)) {
+                boolean negated = match(TokenType.NOT);
+                expect(TokenType.NULL);
+                return new IsNullExpr(column, negated);
+            }
+            CompareOp op = parseCompareOp();
+            Object value = expectLiteralValue();
+            return new CompareExpr(column, op, value);
         }
-        CompareOp op = parseCompareOp();
-        Object value = expectLiteralValue();
-        return new CompareExpr(column, op, value);
+        expect(TokenType.LPAREN);
+        List<Object> values = new ArrayList<>();
+        do {
+            values.add(expectLiteralValue());
+        } while (match(TokenType.COMMA));
+        expect(TokenType.RPAREN);
+        return new InExpr(column, List.copyOf(values), notIn);
     }
 
     private CompareOp parseCompareOp() {

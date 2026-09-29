@@ -24,6 +24,8 @@ public class JdbcTemplate {
                 list.add(mapper.mapRow(rs, rowNum++));
             }
             return list;
+        } catch (Exception e) {
+            throw new JdbcException(e.getMessage());
         } finally {
             release(connection);
         }
