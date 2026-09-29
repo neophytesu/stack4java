@@ -1,7 +1,7 @@
 package spring.service;
 
 import mvc.dto.User;
-import mybatis.mapper.UserMapper;
+import mybatis.mapper.mappers.UserMapper;
 import spring.di.annotation.Autowired;
 import spring.service.annotations.Service;
 import spring.service.annotations.Transactional;

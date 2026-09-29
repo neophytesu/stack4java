@@ -14,9 +14,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MapperProxy implements InvocationHandler {
     private final SqlSession sqlSession;
+    private final ConcurrentHashMap<Method, MappedStatement> statements = new ConcurrentHashMap<>();
 
     public MapperProxy(SqlSession sqlSession) {
         this.sqlSession = sqlSession;
@@ -27,18 +29,23 @@ public class MapperProxy implements InvocationHandler {
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(this, args);
         }
-        String raw = sqlOf(method);
-        BoundSql bound = ParamBinder.bind(method, raw, args);
-        Object[] param = bound.args();
-        String sql = bound.jdbcSql();
-        if (method.getAnnotation(Select.class) != null) {
-            Class<?> returnType = method.getReturnType();
-            if (returnType == List.class) {
-                return sqlSession.getJdbcTemplate().query(sql, param, rowMapper(elementType(method)));
-            }
-            return sqlSession.getJdbcTemplate().queryForObject(sql, param, rowMapper(returnType));
+        MappedStatement mappedStatement = statements.computeIfAbsent(method, this::parse);
+        BoundSql bound = ParamBinder.bind(method, mappedStatement.rawSql(), args);
+        if (!mappedStatement.select()) {
+            return sqlSession.update(bound.jdbcSql(), bound.args());
         }
-        return sqlSession.getJdbcTemplate().update(sql, param);
+        if (mappedStatement.many()) {
+            return sqlSession.selectList(bound.jdbcSql(), bound.args(), mappedStatement.rowMapper());
+        }
+        return sqlSession.selectOne(bound.jdbcSql(), bound.args(), mappedStatement.rowMapper());
+    }
+
+    private MappedStatement parse(Method method) {
+        String raw = sqlOf(method);
+        boolean select = method.getAnnotation(Select.class) != null;
+        boolean many = method.getReturnType() == List.class;
+        Class<?> mappedType = many ? elementType(method) : method.getReturnType();
+        return new MappedStatement(raw, select, many, rowMapper(mappedType));
     }
 
     private String sqlOf(Method method) {

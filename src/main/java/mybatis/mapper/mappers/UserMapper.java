@@ -1,4 +1,4 @@
-package mybatis.mapper;
+package mybatis.mapper.mappers;
 
 import mvc.dto.User;
 import mybatis.annotation.*;
