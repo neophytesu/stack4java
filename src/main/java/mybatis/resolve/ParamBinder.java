@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ParamBinder {
-    private static final Pattern PLACEHOLDER = Pattern.compile("#\\{(\\w+)}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("#\\{([\\w.]+)}");
 
     public static BoundSql bind(Method method, String sql, Object[] args) {
         Parameter[] parameters = method.getParameters();
@@ -32,12 +32,43 @@ public class ParamBinder {
             if (!named.containsKey(name)) {
                 throw new IllegalArgumentException("找不到参数：" + name);
             }
-            jdbcArgs.add(named.get(name));
+            jdbcArgs.add(resolve(named, name));
             jdbcSql.append('?');
             last = matcher.end();
         }
         jdbcSql.append(sql.substring(last));
         return new BoundSql(jdbcSql.toString(), jdbcArgs.toArray());
+    }
+
+    private static Object resolve(Map<String, Object> named, String path) {
+        String[] parts = path.split("\\.");
+        if (!named.containsKey(parts[0])) {
+            throw new IllegalArgumentException("找不到参数：" + path);
+        }
+        Object cur = named.get(parts[0]);
+        for (int i = 1; i < parts.length; i++) {
+            if (cur == null) {
+                return null;
+            }
+            cur = property(cur, parts[i]);
+        }
+        return cur;
+    }
+
+    private static Object property(Object target, String name) {
+        if (!target.getClass().isRecord()) {
+            throw new IllegalStateException("这一版只读 record 属性：" + target.getClass());
+        }
+        for (RecordComponent c : target.getClass().getRecordComponents()) {
+            if (c.getName().equals(name)) {
+                try {
+                    return c.getAccessor().invoke(target);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        }
+        throw new IllegalArgumentException("没有属性：" + name);
     }
 
     private static Map<String, Object> namedArgs(Method method, Object[] values) {
