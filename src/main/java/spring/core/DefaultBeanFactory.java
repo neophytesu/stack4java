@@ -4,6 +4,8 @@ import spring.aop.BeanEnhancer;
 import spring.aop.advisor.Advisor;
 import spring.aop.interceptor.MethodInterceptor;
 import spring.di.annotation.Autowired;
+import spring.ioc.annotation.Bean;
+import spring.ioc.annotation.Configuration;
 import spring.ioc.bean.BeanDefinition;
 import spring.ioc.bean.lifecycle.BeanPostProcessor;
 import spring.ioc.bean.lifecycle.aware.BeanFactoryAware;
@@ -90,6 +92,25 @@ public class DefaultBeanFactory {
             throw new IllegalStateException("工厂已关闭！");
         }
         beanDefinitionRegistry.registerBeanDefinition(type);
+        if (type.isAnnotationPresent(Configuration.class)) {
+            registerBeanMethods(type);
+        }
+    }
+
+    private void registerBeanMethods(Class<?> configClass) {
+        for (Method method : configClass.getDeclaredMethods()) {
+            if (!method.isAnnotationPresent(Bean.class)) {
+                continue;
+            }
+            BeanDefinition def = BeanDefinition.builder()
+                    .beanName(method.getName())
+                    .beanClass(method.getReturnType())
+                    .scope(BeanScope.SINGLETON)
+                    .factoryBeanName(configClass.getName())
+                    .factoryMethod(method)
+                    .build();
+            beanDefinitionRegistry.registerBeanDefinition(method.getName(), def);
+        }
     }
 
     public Object getBean(String beanName) throws Exception {
@@ -122,7 +143,7 @@ public class DefaultBeanFactory {
             return getSingleton(beanName, def);
         }
         if (def.getScope() == BeanScope.PROTOTYPE) {
-            return beanEnhancer.enhance(doCreateBean(instantiateBean(def.getBeanClass()), def));
+            return beanEnhancer.enhance(doCreateBean(instantiateBean(def), def));
         }
         throw new UnsupportedOperationException("不支持的作用域");
     }
@@ -138,7 +159,7 @@ public class DefaultBeanFactory {
 
     private Object createSingletonBean(BeanDefinition beanDefinition) throws Exception {
         String beanName = beanDefinition.getBeanName();
-        Object raw = instantiateBean(beanDefinition.getBeanClass());
+        Object raw = instantiateBean(beanDefinition);
         Object finalRaw = raw;
         singletonFactories.put(beanName, () -> getEarlyBeanReference(finalRaw));
         raw = doCreateBean(raw, beanDefinition);
@@ -221,7 +242,7 @@ public class DefaultBeanFactory {
     }
 
     private Object doCreateBean(Object instance, BeanDefinition beanDefinition) {
-        Class<?> clazz = beanDefinition.getBeanClass();
+        Class<?> clazz = instance.getClass();
         String beanName = beanDefinition.getBeanName();
         try {
             populateBean(instance, clazz);
@@ -238,7 +259,26 @@ public class DefaultBeanFactory {
         return instance;
     }
 
-    private Object instantiateBean(Class<?> clazz) throws Exception {
+    private Object instantiateBean(BeanDefinition def) throws Exception {
+        if (def.getFactoryMethod() != null) {
+            return createByFactoryMethod(def);
+        }
+        return instantiateByConstructor(def.getBeanClass());
+    }
+
+    private Object createByFactoryMethod(BeanDefinition def) throws Exception {
+        Object factory = getBean(def.getFactoryBeanName());
+        Method method = def.getFactoryMethod();
+        method.setAccessible(true);
+        Class<?>[] types = method.getParameterTypes();
+        Object[] args = new Object[types.length];
+        for (int i = 0; i < types.length; i++) {
+            args[i] = getBean(types[i]);
+        }
+        return method.invoke(factory, args);
+    }
+
+    private Object instantiateByConstructor(Class<?> clazz) throws Exception {
         Object instance = null;
         int autowiredCnt = 0;
         for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {

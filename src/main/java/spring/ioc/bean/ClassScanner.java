@@ -1,7 +1,7 @@
 package spring.ioc.bean;
 
 import mvc.annotation.Controller;
-import spring.ioc.annotation.Bean;
+import spring.ioc.annotation.Configuration;
 import spring.service.annotations.Service;
 
 import java.lang.annotation.Annotation;
@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 public class ClassScanner {
 
-    private final List<Class<? extends Annotation>> beanTypeAnnotations = List.of(Bean.class, Controller.class, Service.class);
+    private final List<Class<? extends Annotation>> beanTypeAnnotations = List.of(Configuration.class, Controller.class, Service.class);
 
     List<Class<?>> scanPackage(String basePackage) throws Exception {
         return loadPackage(basePackage).stream().filter(clazz -> beanTypeAnnotations.stream().anyMatch(clazz::isAnnotationPresent)).toList();

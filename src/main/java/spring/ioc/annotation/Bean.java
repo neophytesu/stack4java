@@ -2,7 +2,7 @@ package spring.ioc.annotation;
 
 import java.lang.annotation.*;
 
-@Target({ElementType.TYPE,ElementType.ANNOTATION_TYPE})
+@Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface Bean {

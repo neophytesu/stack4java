@@ -10,6 +10,7 @@ public class AppConfig {
         all.addAll(sc.scanPackage("mvc.controller"));
         all.addAll(sc.scanPackage("mvc.view"));
         all.addAll(sc.scanPackage("spring.service"));
+        all.addAll(sc.scanPackage("spring.ioc.bean"));
         return all.toArray(Class[]::new);
     }
 }

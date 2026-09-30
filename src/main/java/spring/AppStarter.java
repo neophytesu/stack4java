@@ -2,13 +2,8 @@ package spring;
 
 import http.HttpServer;
 import jdbc.DataSource;
-import jdbc.support.PooledDataSource;
-import jdbc.template.JdbcTemplate;
-import mybatis.interceptor.LogInterceptor;
 import mybatis.mapper.MapperScanner;
-import mybatis.resolve.type.TypeHandlerRegistry;
 import mybatis.session.SqlSessionFactory;
-import mysql.config.SqlEngineBootstrap;
 import spring.aop.advisor.SimpleAdvisor;
 import spring.aop.interceptor.LogMethodInterceptor;
 import spring.aop.interceptor.TransactionalInterceptor;
@@ -38,17 +33,12 @@ public class AppStarter {
                 return bean;
             }
         });
-        DataSource ds = new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app");
-        TypeHandlerRegistry typeHandlerRegistry = new TypeHandlerRegistry();
-        factory.register(ds);
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(ds, typeHandlerRegistry);
-        SqlSessionFactory sqlSessionFactory = new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor()), typeHandlerRegistry);
-        factory.register(jdbcTemplate);
-        factory.register(sqlSessionFactory);
-        new MapperScanner(factory).scan("mybatis.mapper");
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
+        new MapperScanner(factory).scan("mybatis.mapper");
+        DataSource ds = (DataSource) factory.getBean(DataSource.class);
+        SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) factory.getBean(SqlSessionFactory.class);
         factory.addAdvisors(List.of(
                 new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
                 new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor(ds, sqlSessionFactory))));

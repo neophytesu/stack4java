@@ -1,12 +1,10 @@
 package mvc.view;
 
-import spring.ioc.annotation.Bean;
 import lombok.Data;
 import mvc.view.interfaces.View;
 import mvc.view.interfaces.ViewResolver;
 
 @Data
-@Bean
 public class PrefixSuffixViewResolver implements ViewResolver {
 
     String prefix = "templates/";

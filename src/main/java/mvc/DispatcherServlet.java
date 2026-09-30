@@ -16,7 +16,6 @@ import mvc.common.route.Segment;
 import mvc.common.route.RouteEntry;
 import mvc.handler.Handler;
 import mvc.handler.ReflectiveHandler;
-import mvc.view.PrefixSuffixViewResolver;
 import mvc.view.interfaces.ViewResolver;
 
 import java.io.IOException;
@@ -102,10 +101,13 @@ public class DispatcherServlet implements HttpServlet {
     public void init(HttpServletConfig config) throws Exception {
         HttpServlet.super.init(config);
         this.servletConfig = config;
-        viewResolver = (ViewResolver) beanFactory.getBean(PrefixSuffixViewResolver.class);
+        viewResolver = (ViewResolver) beanFactory.getBean(ViewResolver.class);
         try {
             for (Class<?> clazz : this.appConfig.controllerClasses()) {
-                registerController(beanFactory.getBean(clazz));
+                if (!clazz.isAnnotationPresent(Controller.class)) {
+                    continue;
+                }
+                registerController(clazz, beanFactory.getBean(clazz));
             }
         } catch (Exception e) {
             System.out.println("Controller Register Failed!");
@@ -114,8 +116,7 @@ public class DispatcherServlet implements HttpServlet {
         }
     }
 
-    private void registerController(Object controller) throws Exception {
-        Class<?> clazz = controller.getClass();
+    private void registerController(Class<?> clazz, Object controller) throws Exception {
         String basePath = "";
         if (clazz.isAnnotationPresent(Controller.class)) {
             basePath = clazz.getAnnotation(Controller.class).value();
