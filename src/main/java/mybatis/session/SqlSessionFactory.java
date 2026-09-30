@@ -13,13 +13,37 @@ import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SqlSessionFactory {
     private final JdbcTemplate jdbcTemplate;
     private final List<Interceptor> interceptors;
     private final Map<String, XmlStatement> xmlStatements = new HashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, Object>> mapperCaches = new ConcurrentHashMap<>();
     @Getter
     private final TypeHandlerRegistry typeHandlerRegistry;
+
+    public Object getL2(String namespace, String key) {
+        ConcurrentHashMap<String, Object> cache = mapperCaches.get(namespace);
+        return cache == null ? null : cache.get(key);
+    }
+
+    public boolean hasL2(String namespace, String key) {
+        ConcurrentHashMap<String, Object> cache = mapperCaches.get(namespace);
+        return cache != null && cache.containsKey(key);
+    }
+
+    public void putL2(String namespace, String key, Object value) {
+        mapperCaches.computeIfAbsent(namespace, _ -> new ConcurrentHashMap<>()).put(key, value);
+    }
+
+    public void clearL2(String namespace) {
+        ConcurrentHashMap<String, Object> cache = mapperCaches.get(namespace);
+        if (cache != null) {
+            cache.clear();
+        }
+    }
+
     public void loadXml(Class<?> mapperType) {
         for (Map.Entry<String, XmlStatement> stringXmlStatementEntry : XmlMapperLoader.load(mapperType).entrySet()) {
             String key = mapperType.getName() + "." + stringXmlStatementEntry.getKey();
@@ -40,7 +64,7 @@ public class SqlSessionFactory {
     }
 
     public SqlSession openSession() {
-        return new SqlSession(jdbcTemplate, new InterceptorChain(interceptors));
+        return new SqlSession(jdbcTemplate, new InterceptorChain(interceptors), this);
     }
 
     public <T> T getMapper(Class<T> type) {

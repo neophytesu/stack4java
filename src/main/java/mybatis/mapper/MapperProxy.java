@@ -43,6 +43,8 @@ public class MapperProxy implements InvocationHandler {
     private Object execute(Method method, Object[] args, SqlSession sqlSession) throws IllegalAccessException, InvocationTargetException {
         MappedStatement mappedStatement = statements.computeIfAbsent(method, this::parse);
         String raw = mappedStatement.rawSql();
+        String namespace = mappedStatement.namespace();
+        boolean cache = mappedStatement.cache();
         if (mappedStatement.sqlProvider() != null) {
             raw = (String) mappedStatement.sqlProvider().invoke(null, args);
         }
@@ -53,14 +55,14 @@ public class MapperProxy implements InvocationHandler {
         Object[] boundArg = bound.args();
         if (!mappedStatement.select()) {
             if (mappedStatement.useGeneratedKeys()) {
-                return sqlSession.updateAndReturnKey(sql, boundArg);
+                return sqlSession.updateAndReturnKey(sql, boundArg, namespace, cache);
             }
-            return sqlSession.update(sql, boundArg);
+            return sqlSession.update(sql, boundArg, namespace, cache);
         }
         if (mappedStatement.many()) {
-            return sqlSession.selectList(sql, boundArg, mappedStatement.rowMapper());
+            return sqlSession.selectList(sql, boundArg, mappedStatement.rowMapper(), namespace, cache);
         }
-        return sqlSession.selectOne(sql, boundArg, mappedStatement.rowMapper());
+        return sqlSession.selectOne(sql, boundArg, mappedStatement.rowMapper(), namespace, cache);
     }
 
     private MappedStatement parse(Method method) {
@@ -107,7 +109,10 @@ public class MapperProxy implements InvocationHandler {
             throw new IllegalStateException(method + " 不能同时使用 @Results 和 XML resultMap");
         }
         Map<String, String> columnByProperty = !fromXml.isEmpty() ? fromXml : fromAnn;
-        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType, columnByProperty), useGeneratedKeys, columnByProperty);
+        Class<?> mapperType = method.getDeclaringClass();
+        String namespace = mapperType.getName();
+        boolean cache = mapperType.isAnnotationPresent(CacheNamespace.class);
+        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType, columnByProperty), useGeneratedKeys, columnByProperty, namespace, cache);
     }
 
     private Map<String, String> columnByProperty(Method method) {

@@ -6,6 +6,7 @@ import mybatis.annotation.*;
 import java.util.List;
 
 @Mapper
+@CacheNamespace
 public interface UserMapper {
 
     @Select("SELECT * FROM user")

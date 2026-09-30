@@ -12,5 +12,7 @@ public record MappedStatement(
         boolean many,
         RowMapper<?> rowMapper,
         boolean useGeneratedKeys,
-        Map<String, String> columnByProperty) {
+        Map<String, String> columnByProperty,
+        String namespace,
+        boolean cache) {
 }
