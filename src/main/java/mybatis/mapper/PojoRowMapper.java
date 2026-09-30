@@ -2,6 +2,8 @@ package mybatis.mapper;
 
 import jdbc.ResultSet;
 import jdbc.RowMapper;
+import mybatis.resolve.type.TypeHandler;
+import mybatis.resolve.type.TypeHandlerRegistry;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.RecordComponent;
@@ -11,8 +13,10 @@ public class PojoRowMapper<T> implements RowMapper<T> {
     private final Constructor<T> constructor;
     private final RecordComponent[] components;
     private final Map<String, String> columnByProperty;
+    private final TypeHandlerRegistry typeHandlerRegistry;
 
-    public PojoRowMapper(Class<T> type, Map<String, String> columnByProperty) {
+    public PojoRowMapper(Class<T> type, Map<String, String> columnByProperty, TypeHandlerRegistry typeHandlerRegistry) {
+        this.typeHandlerRegistry = typeHandlerRegistry;
         if (!type.isRecord()) {
             throw new IllegalStateException("这一版只映射 record：" + type);
         }
@@ -28,7 +32,8 @@ public class PojoRowMapper<T> implements RowMapper<T> {
         for (int i = 0; i < components.length; i++) {
             String property = components[i].getName();
             String column = columnByProperty.getOrDefault(property, property);
-            args[i] = rs.getObject(column);
+            TypeHandler<?> handler = typeHandlerRegistry.get(components[i].getType());
+            args[i] = handler.getResult(rs, column);
         }
         return constructor.newInstance(args);
     }

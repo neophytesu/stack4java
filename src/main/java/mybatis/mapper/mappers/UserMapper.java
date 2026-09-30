@@ -50,4 +50,11 @@ public interface UserMapper {
             @Result(column = "name", property = "uname")
     })
     List<UserView> findAllView();
+
+    @Insert("INSERT INTO user (name, age, role) VALUES (#{name}, #{age}, #{role})")
+    @Options(useGeneratedKeys = true)
+    int insertWithRole(@Param("name") String name, @Param("age") int age, @Param("role") Role role);
+
+    @Select("SELECT * FROM user WHERE id = #{id}")
+    UserRoleView findRoleView(@Param("id") int id);
 }

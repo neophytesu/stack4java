@@ -18,6 +18,7 @@ public class SqlEngineBootstrap {
                     id INT AUTO_INCREMENT,
                     name VARCHAR,
                     age INT,
+                    role VARCHAR,
                     PRIMARY KEY (id)
                 )
                 """);

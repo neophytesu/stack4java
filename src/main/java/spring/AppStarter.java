@@ -6,6 +6,7 @@ import jdbc.support.PooledDataSource;
 import jdbc.template.JdbcTemplate;
 import mybatis.interceptor.LogInterceptor;
 import mybatis.mapper.MapperScanner;
+import mybatis.resolve.type.TypeHandlerRegistry;
 import mybatis.session.SqlSessionFactory;
 import mysql.config.SqlEngineBootstrap;
 import spring.aop.advisor.SimpleAdvisor;
@@ -38,9 +39,10 @@ public class AppStarter {
             }
         });
         DataSource ds = new PooledDataSource(SqlEngineBootstrap.createCatalogAndInit(), 4, "app");
+        TypeHandlerRegistry typeHandlerRegistry = new TypeHandlerRegistry();
         factory.register(ds);
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(ds);
-        SqlSessionFactory sqlSessionFactory = new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor()));
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(ds, typeHandlerRegistry);
+        SqlSessionFactory sqlSessionFactory = new SqlSessionFactory(jdbcTemplate, List.of(new LogInterceptor()), typeHandlerRegistry);
         factory.register(jdbcTemplate);
         factory.register(sqlSessionFactory);
         new MapperScanner(factory).scan("mybatis.mapper");

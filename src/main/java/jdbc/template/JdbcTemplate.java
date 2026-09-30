@@ -2,6 +2,8 @@ package jdbc.template;
 
 import jdbc.*;
 import jdbc.support.ConnectionUtils;
+import mybatis.resolve.type.TypeHandler;
+import mybatis.resolve.type.TypeHandlerRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,9 +11,11 @@ import java.util.List;
 
 public class JdbcTemplate {
     private final DataSource dataSource;
+    private final TypeHandlerRegistry typeHandlerRegistry;
 
-    public JdbcTemplate(DataSource dataSource) {
+    public JdbcTemplate(DataSource dataSource, TypeHandlerRegistry typeHandlerRegistry) {
         this.dataSource = dataSource;
+        this.typeHandlerRegistry = typeHandlerRegistry;
     }
 
     public <T> List<T> query(String sql, Object[] args, RowMapper<T> mapper) {
@@ -90,7 +94,8 @@ public class JdbcTemplate {
             if (arg == null) {
                 ps.setNull(i + 1);
             } else {
-                ps.setObject(i + 1, arg);
+                TypeHandler handler = typeHandlerRegistry.get(arg.getClass());
+                handler.setParameter(ps, i + 1, arg);
             }
         }
     }

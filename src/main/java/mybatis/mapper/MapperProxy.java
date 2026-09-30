@@ -144,7 +144,7 @@ public class MapperProxy implements InvocationHandler {
         if (isScalar(returnType)) {
             return new ScalarRowMapper<>(returnType);
         }
-        return new PojoRowMapper<>(returnType, columnByProperty);
+        return new PojoRowMapper<>(returnType, columnByProperty, sqlSessionFactory.getTypeHandlerRegistry());
     }
 
     private boolean isScalar(Class<?> returnType) {
