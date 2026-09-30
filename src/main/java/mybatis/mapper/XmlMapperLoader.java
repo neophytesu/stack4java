@@ -6,8 +6,23 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class XmlMapperLoader {
+    private static final Pattern INCLUDE = Pattern.compile("<include refid=\"(\\w+)\"\\s*></include>");
+
+    private static String resolveIncludes(String sql, Map<String, String> fragments) {
+        return INCLUDE.matcher(sql).replaceAll(m -> {
+            String id = m.group(1);
+            String frag = fragments.get(id);
+            if (frag == null) {
+                throw new IllegalStateException("找不到 sql 片段：" + id);
+            }
+            return Matcher.quoteReplacement(frag);
+        });
+    }
+
     public static Map<String, XmlStatement> load(Class<?> mapperType) {
         try (InputStream in = mapperType.getResourceAsStream(mapperType.getSimpleName() + ".xml")) {
             if (in == null) {
@@ -26,6 +41,7 @@ public class XmlMapperLoader {
             }
             Map<String, XmlStatement> statements = new LinkedHashMap<>();
             NodeList children = root.getChildNodes();
+            Map<String, String> fragments = new LinkedHashMap<>();
             for (int i = 0; i < children.getLength(); i++) {
                 Node node = children.item(i);
                 if (node.getNodeType() != Node.ELEMENT_NODE) {
@@ -33,16 +49,22 @@ public class XmlMapperLoader {
                 }
                 Element element = (Element) node;
                 String tag = element.getTagName();
+                String id = element.getAttribute("id");
+                if ("sql".equals(tag)) {
+                    fragments.put(id, innerXml(element).trim());
+                    continue;
+                }
                 boolean select = switch (tag) {
                     case "select" -> true;
                     case "insert", "update", "delete" -> false;
                     default -> throw new IllegalStateException("不支持的节点：" + tag);
                 };
-                String id = element.getAttribute("id");
+
                 if (id.isBlank()) {
                     throw new IllegalStateException(tag + " 缺少id");
                 }
-                if (statements.put(id, new XmlStatement(innerXml(element).trim(), select)) != null) {
+                String raw = resolveIncludes(innerXml(element).trim(), fragments);
+                if (statements.put(id, new XmlStatement(raw, select)) != null) {
                     throw new IllegalStateException("重复 id：" + id);
                 }
             }

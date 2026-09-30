@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <mapper namespace="mybatis.mapper.mappers.UserMapper">
+    <sql id="userColumns">id,name,age</sql>
     <select id="search">
-        SELECT * FROM user
+        SELECT
+        <include refid="userColumns"/> FROM user
         <where>
             <if test="name != null">AND name = #{name}</if>
             <if test="minAge != null">AND age >= #{minAge}</if>

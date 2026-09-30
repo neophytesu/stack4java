@@ -7,6 +7,7 @@ import spring.service.annotations.Service;
 import spring.service.annotations.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class UserService {
@@ -92,5 +93,12 @@ public class UserService {
             throw new RuntimeException("传递失败");
         }
         return true;
+    }
+
+    public List<User> listUsersOrderBy(String column) {
+        if (!Set.of("id", "name", "age").contains(column)) {
+            throw new IllegalArgumentException("非法排序列：" + column);
+        }
+        return userMapper.findAllOrderBy(column);
     }
 }

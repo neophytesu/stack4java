@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 
 public class ParamBinder {
     private static final Pattern PLACEHOLDER = Pattern.compile("#\\{([\\w.]+)(?:\\[(\\d+)])?}");
+    private static final Pattern DOLLAR = Pattern.compile("\\$\\{([\\w.]+)}");
 
     public static BoundSql bind(Method method, String sql, Object[] args) {
         Parameter[] parameters = method.getParameters();
@@ -22,6 +23,7 @@ public class ParamBinder {
             throw new IllegalArgumentException("参数个数对不上：" + method);
         }
         Map<String, Object> named = namedArgs(method, values);
+        sql = substituteDollar(sql, named);
         Matcher matcher = PLACEHOLDER.matcher(sql);
         StringBuilder jdbcSql = new StringBuilder();
         List<Object> jdbcArgs = new ArrayList<>();
@@ -42,6 +44,23 @@ public class ParamBinder {
         }
         jdbcSql.append(sql.substring(last));
         return new BoundSql(jdbcSql.toString(), jdbcArgs.toArray());
+    }
+
+    private static String substituteDollar(String sql, Map<String, Object> named) {
+        Matcher matcher = DOLLAR.matcher(sql);
+        StringBuilder out = new StringBuilder();
+        int last = 0;
+        while (matcher.find()) {
+            Object value = resolve(named, matcher.group(1));
+            if (value == null) {
+                throw new IllegalArgumentException("${} 不能为 null：" + matcher.group(1));
+            }
+            out.append(sql, last, matcher.start());
+            out.append(value);
+            last = matcher.end();
+        }
+        out.append(sql.substring(last));
+        return out.toString();
     }
 
     private static void appendList(StringBuilder jdbcSql, List<Object> jdbcArgs, List<?> list) {

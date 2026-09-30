@@ -41,4 +41,7 @@ public interface UserMapper {
     List<User> findByIds(@Param("ids") List<Integer> ids);
 
     List<User> search(@Param("name") String name, @Param("minAge") Integer minAge);
+
+    @Select("SELECT * FROM user ORDER BY ${column}")
+    List<User> findAllOrderBy(@Param("column") String column);
 }
