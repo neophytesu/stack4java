@@ -1,14 +1,8 @@
 package spring;
 
 import http.HttpServer;
-import jdbc.DataSource;
 import mybatis.mapper.MapperScanner;
-import mybatis.session.SqlSessionFactory;
-import spring.aop.advisor.SimpleAdvisor;
-import spring.aop.interceptor.LogMethodInterceptor;
-import spring.aop.interceptor.TransactionalInterceptor;
-import spring.aop.pointcut.LogMethodPointcut;
-import spring.aop.pointcut.TransactionalPointcut;
+import spring.aop.advisor.Advisor;
 import spring.ioc.bean.AppConfig;
 import spring.core.DefaultBeanFactory;
 import mvc.DispatcherServlet;
@@ -36,12 +30,10 @@ public class AppStarter {
         for (Class<?> clazz : config.controllerClasses()) {
             factory.register(clazz);
         }
-        new MapperScanner(factory).scan("mybatis.mapper");
-        DataSource ds = (DataSource) factory.getBean(DataSource.class);
-        SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) factory.getBean(SqlSessionFactory.class);
         factory.addAdvisors(List.of(
-                new SimpleAdvisor(new LogMethodPointcut(), new LogMethodInterceptor()),
-                new SimpleAdvisor(new TransactionalPointcut(), new TransactionalInterceptor(ds, sqlSessionFactory))));
+                (Advisor) factory.getBean("logAdvisor"),
+                (Advisor) factory.getBean("txAdvisor")));
+        new MapperScanner(factory).scan("mybatis.mapper");
         DispatcherServlet dispatcherServlet = new DispatcherServlet(factory, config);
         HttpServer server = new HttpServer(8080);
         server.addServlet("/api/*", dispatcherServlet, "dispatcher");

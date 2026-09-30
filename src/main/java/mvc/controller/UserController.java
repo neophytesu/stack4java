@@ -10,6 +10,7 @@ import mvc.annotation.request.PostMapping;
 import mvc.annotation.request.PutMapping;
 import mvc.dto.User;
 import spring.di.annotation.Autowired;
+import spring.service.BarService;
 import spring.service.UserService;
 
 import java.util.List;
@@ -21,6 +22,19 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private BarService barService;
+
+    @PostMapping("/transfer-via-bar")
+    public boolean transferViaBar(@RequestBody Map<String, Object> request) {
+        return barService.bounce(
+                (Integer) request.get("fromId"),
+                (Integer) request.get("toId"),
+                (Integer) request.get("amount"),
+                (Boolean) request.get("failAfterDebit")
+        );
+    }
 
     @GetMapping()
     public List<User> list() {

@@ -164,15 +164,20 @@ public class DefaultBeanFactory {
         singletonFactories.put(beanName, () -> getEarlyBeanReference(finalRaw));
         raw = doCreateBean(raw, beanDefinition);
         registerDisposableBeanIfNecessary(beanName, raw);
-        Object exposedBean = beanEnhancer.enhance(raw);
+        Object exposedBean;
+        if (earlySingletonObjects.containsKey(beanName)) {
+            exposedBean = earlySingletonObjects.get(beanName);
+        } else {
+            exposedBean = beanEnhancer.enhance(raw);
+        }
         singletonObjects.put(beanName, exposedBean);
         earlySingletonObjects.remove(beanName);
         singletonFactories.remove(beanName);
         return exposedBean;
     }
 
-    private Object getEarlyBeanReference(Object raw) {
-        return raw;
+    private Object getEarlyBeanReference(Object raw) throws Exception {
+        return beanEnhancer.enhance(raw);
     }
 
     private void registerDisposableBeanIfNecessary(String beanName, Object rawBean) {
