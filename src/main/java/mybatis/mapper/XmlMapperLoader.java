@@ -42,16 +42,33 @@ public class XmlMapperLoader {
             Map<String, XmlStatement> statements = new LinkedHashMap<>();
             NodeList children = root.getChildNodes();
             Map<String, String> fragments = new LinkedHashMap<>();
+            Map<String, Map<String, String>> resultMaps = new LinkedHashMap<>();
             for (int i = 0; i < children.getLength(); i++) {
-                Node node = children.item(i);
-                if (node.getNodeType() != Node.ELEMENT_NODE) {
+                Element element = elementAt(children, i);
+                if (element == null) {
                     continue;
                 }
-                Element element = (Element) node;
                 String tag = element.getTagName();
                 String id = element.getAttribute("id");
                 if ("sql".equals(tag)) {
-                    fragments.put(id, innerXml(element).trim());
+                    if (id.isBlank() || fragments.put(id, innerXml(element).trim()) != null) {
+                        throw new IllegalStateException("sql 缺少 id 或重复：" + id);
+                    }
+                    continue;
+                }
+                if ("resultMap".equals(tag)) {
+                    if (id.isBlank() || resultMaps.put(id, parseResultMap(element)) != null) {
+                        throw new IllegalStateException("resultMap 缺少 id 或重复：" + id);
+                    }
+                }
+            }
+            for (int i = 0; i < children.getLength(); i++) {
+                Element element = elementAt(children, i);
+                if (element == null) {
+                    continue;
+                }
+                String tag = element.getTagName();
+                if ("sql".equals(tag) || "resultMap".equals(tag)) {
                     continue;
                 }
                 boolean select = switch (tag) {
@@ -59,12 +76,20 @@ public class XmlMapperLoader {
                     case "insert", "update", "delete" -> false;
                     default -> throw new IllegalStateException("不支持的节点：" + tag);
                 };
-
+                String id = element.getAttribute("id");
                 if (id.isBlank()) {
                     throw new IllegalStateException(tag + " 缺少id");
                 }
                 String raw = resolveIncludes(innerXml(element).trim(), fragments);
-                if (statements.put(id, new XmlStatement(raw, select)) != null) {
+                String resultMapId = element.getAttribute("resultMap");
+                Map<String, String> columnByProperty = Map.of();
+                if (!resultMapId.isBlank()) {
+                    columnByProperty = resultMaps.get(resultMapId);
+                    if (columnByProperty == null) {
+                        throw new IllegalStateException("找不到 resultMap：" + resultMapId);
+                    }
+                }
+                if (statements.put(id, new XmlStatement(raw, select, columnByProperty)) != null) {
                     throw new IllegalStateException("重复 id：" + id);
                 }
             }
@@ -72,6 +97,33 @@ public class XmlMapperLoader {
         } catch (Exception e) {
             throw new IllegalStateException("读取 " + mapperType.getName() + ".xml 失败", e);
         }
+    }
+
+    private static Element elementAt(NodeList children, int i) {
+        Node node = children.item(i);
+        return node.getNodeType() == Node.ELEMENT_NODE ? (Element) node : null;
+    }
+
+    private static Map<String, String> parseResultMap(Element resultMap) {
+        Map<String, String> map = new LinkedHashMap<>();
+        NodeList children = resultMap.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node.getNodeType() != Node.ELEMENT_NODE) {
+                continue;
+            }
+            Element el = (Element) node;
+            if (!"result".equals(el.getTagName())) {
+                throw new IllegalStateException("resultMap 里不支持：" + el.getTagName());
+            }
+            String property = el.getAttribute("property");
+            String column = el.getAttribute("column");
+            if (property.isBlank() || column.isBlank()) {
+                throw new IllegalStateException("result 需要 property 和 column");
+            }
+            map.put(property, column);
+        }
+        return Map.copyOf(map);
     }
 
     private static String innerXml(Node node) {

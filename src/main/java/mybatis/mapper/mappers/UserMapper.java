@@ -45,10 +45,6 @@ public interface UserMapper {
     @Select("SELECT * FROM user ORDER BY ${column}")
     List<User> findAllOrderBy(@Param("column") String column);
 
-    @Select("SELECT * FROM user")
-    @Results({
-            @Result(column = "name", property = "uname")
-    })
     List<UserView> findAllView();
 
     @Insert("INSERT INTO user (name, age, role) VALUES (#{name}, #{age}, #{role})")

@@ -101,7 +101,12 @@ public class MapperProxy implements InvocationHandler {
         if (useGeneratedKeys && select) {
             throw new IllegalStateException(method + " 查询不能 useGeneratedKeys");
         }
-        Map<String, String> columnByProperty = columnByProperty(method);
+        Map<String, String> fromXml = xml != null ? xml.columnByProperty() : Map.of();
+        Map<String, String> fromAnn = columnByProperty(method);
+        if (!fromXml.isEmpty() && !fromAnn.isEmpty()) {
+            throw new IllegalStateException(method + " 不能同时使用 @Results 和 XML resultMap");
+        }
+        Map<String, String> columnByProperty = !fromXml.isEmpty() ? fromXml : fromAnn;
         return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType, columnByProperty), useGeneratedKeys, columnByProperty);
     }
 

@@ -1,4 +1,6 @@
 package mybatis.mapper;
 
-public record XmlStatement(String rawSql, boolean select) {
+import java.util.Map;
+
+public record XmlStatement(String rawSql, boolean select, Map<String, String> columnByProperty) {
 }
