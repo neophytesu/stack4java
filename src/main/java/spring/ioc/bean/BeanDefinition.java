@@ -16,4 +16,5 @@ public class BeanDefinition {
     private boolean primary;
     private String factoryBeanName;
     private Method factoryMethod;
+    private String qualifier;
 }

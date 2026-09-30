@@ -1,6 +1,7 @@
 package spring.core;
 
 import spring.di.annotation.Primary;
+import spring.ioc.annotation.Qualifier;
 import spring.ioc.annotation.Scope;
 import spring.ioc.bean.BeanDefinition;
 import spring.ioc.enums.BeanScope;
@@ -37,6 +38,9 @@ public class BeanDefinitionRegistry {
         }
         if (clazz.isAnnotationPresent(Primary.class)) {
             beanDefinition.setPrimary(true);
+        }
+        if (clazz.isAnnotationPresent(Qualifier.class)) {
+            beanDefinition.setQualifier(clazz.getAnnotation(Qualifier.class).value());
         }
         registeredBeans.put(clazz.getName(), beanDefinition);
     }

@@ -14,6 +14,8 @@ public class UserService {
 
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private BarService barService;
 
     public List<User> listUsers() {
         return userMapper.findAll();

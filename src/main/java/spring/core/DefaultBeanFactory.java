@@ -6,6 +6,7 @@ import spring.aop.interceptor.MethodInterceptor;
 import spring.di.annotation.Autowired;
 import spring.ioc.annotation.Bean;
 import spring.ioc.annotation.Configuration;
+import spring.ioc.annotation.Qualifier;
 import spring.ioc.bean.BeanDefinition;
 import spring.ioc.bean.lifecycle.BeanPostProcessor;
 import spring.ioc.bean.lifecycle.aware.BeanFactoryAware;
@@ -20,6 +21,7 @@ import spring.ioc.enums.BeanScope;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -109,6 +111,10 @@ public class DefaultBeanFactory {
                     .factoryBeanName(configClass.getName())
                     .factoryMethod(method)
                     .build();
+            Qualifier q = method.getAnnotation(Qualifier.class);
+            if (q != null) {
+                def.setQualifier(q.value());
+            }
             beanDefinitionRegistry.registerBeanDefinition(method.getName(), def);
         }
     }
@@ -275,10 +281,14 @@ public class DefaultBeanFactory {
         Object factory = getBean(def.getFactoryBeanName());
         Method method = def.getFactoryMethod();
         method.setAccessible(true);
-        Class<?>[] types = method.getParameterTypes();
-        Object[] args = new Object[types.length];
-        for (int i = 0; i < types.length; i++) {
-            args[i] = getBean(types[i]);
+        Parameter[] parameters = method.getParameters();
+        Object[] args = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            args[i] = resolveAutowired(
+                    parameters[i].getType(),
+                    parameters[i].getAnnotation(Qualifier.class),
+                    false
+            );
         }
         return method.invoke(factory, args);
     }
@@ -315,7 +325,7 @@ public class DefaultBeanFactory {
         for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(Autowired.class)) {
                 field.setAccessible(true);
-                field.set(instance, getBean(field.getType(), true));
+                field.set(instance, resolveAutowired(field.getType(), field.getAnnotation(Qualifier.class), true));
             }
         }
     }
@@ -361,14 +371,38 @@ public class DefaultBeanFactory {
     }
 
     private Object createByConstructor(Constructor<?> constructor) throws Exception {
-        List<Object> params = new ArrayList<>();
-        for (Class<?> parameterType : constructor.getParameterTypes()) {
-            Object dep = getBean(parameterType);
-            if (dep == null) {
-                throw new IllegalStateException("No bean for " + parameterType + " required by " + constructor);
-            }
-            params.add(dep);
+        Parameter[] parameters = constructor.getParameters();
+        Object[] args = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            args[i] = resolveAutowired(
+                    parameters[i].getType(),
+                    parameters[i].getAnnotation(Qualifier.class),
+                    false
+            );
         }
-        return constructor.newInstance(params.toArray());
+        return constructor.newInstance(args);
+    }
+
+    private Object resolveAutowired(Class<?> type, Qualifier qualifier, boolean allowEarly) throws Exception {
+        if (qualifier == null) {
+            return getBean(type, allowEarly);
+        }
+        String q = qualifier.value();
+        String match = null;
+        for (String name : beanDefinitionRegistry.getBeanNamesForType(type)) {
+            BeanDefinition def = beanDefinitionRegistry.getBeanDefinition(name);
+            String id = def.getQualifier() != null ? def.getQualifier() : def.getBeanName();
+            if (!q.equals(id)) {
+                continue;
+            }
+            if (match != null) {
+                throw new IllegalStateException(type.getName() + " 存在多个 qualifier=" + q);
+            }
+            match = name;
+        }
+        if (match == null) {
+            throw new IllegalStateException(type.getName() + " 找不到 qualifier=" + q);
+        }
+        return getBean(match, allowEarly);
     }
 }

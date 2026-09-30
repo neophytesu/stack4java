@@ -8,6 +8,7 @@ import mvc.annotation.param.ResponseBody;
 import mvc.annotation.request.GetMapping;
 import mvc.annotation.param.RequestParam;
 import mvc.view.ModelAndView;
+import spring.ioc.annotation.Qualifier;
 import spring.ioc.bean.lifecycle.destroy.PreDestroy;
 import spring.ioc.bean.lifecycle.init.PostConstruct;
 import spring.service.interfaces.MyNameService;
@@ -19,6 +20,7 @@ import java.util.Map;
 public class HelloController {
 
     @Autowired
+    @Qualifier("hyc")
     MyNameService myNameService;
 
     @Autowired
