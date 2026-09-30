@@ -3,6 +3,7 @@ package mybatis.mapper;
 import jdbc.RowMapper;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 
 public record MappedStatement(
         String rawSql,
@@ -10,5 +11,6 @@ public record MappedStatement(
         boolean select,
         boolean many,
         RowMapper<?> rowMapper,
-        boolean useGeneratedKeys) {
+        boolean useGeneratedKeys,
+        Map<String, String> columnByProperty) {
 }

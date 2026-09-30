@@ -10,6 +10,7 @@ import mybatis.session.SqlSessionFactory;
 import mybatis.session.SqlSessionHolder;
 
 import java.lang.reflect.*;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -100,7 +101,20 @@ public class MapperProxy implements InvocationHandler {
         if (useGeneratedKeys && select) {
             throw new IllegalStateException(method + " 查询不能 useGeneratedKeys");
         }
-        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType), useGeneratedKeys);
+        Map<String, String> columnByProperty = columnByProperty(method);
+        return new MappedStatement(rawSql, sqlProviderMethod, select, many, rowMapper(mappedType, columnByProperty), useGeneratedKeys, columnByProperty);
+    }
+
+    private Map<String, String> columnByProperty(Method method) {
+        Results results = method.getAnnotation(Results.class);
+        if (results == null) {
+            return Map.of();
+        }
+        Map<String, String> map = new HashMap<>();
+        for (Result r : results.value()) {
+            map.put(r.property(), r.column());
+        }
+        return Map.copyOf(map);
     }
 
     private Method resolveProvider(Method mapperMethod, SelectProvider ann) {
@@ -126,11 +140,11 @@ public class MapperProxy implements InvocationHandler {
         return count;
     }
 
-    private RowMapper<?> rowMapper(Class<?> returnType) {
+    private RowMapper<?> rowMapper(Class<?> returnType, Map<String, String> columnByProperty) {
         if (isScalar(returnType)) {
             return new ScalarRowMapper<>(returnType);
         }
-        return new PojoRowMapper<>(returnType);
+        return new PojoRowMapper<>(returnType, columnByProperty);
     }
 
     private boolean isScalar(Class<?> returnType) {
