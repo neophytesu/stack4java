@@ -54,4 +54,8 @@ public interface UserMapper {
 
     @Select("SELECT * FROM user WHERE id = #{id}")
     UserRoleView findRoleView(@Param("id") int id);
+
+    List<User> findByAgeBand(@Param("minAge") Integer minAge);
+
+    int updatePartial(@Param("id") int id, @Param("name") String name, @Param("age") Integer age);
 }

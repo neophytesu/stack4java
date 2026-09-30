@@ -10,8 +10,12 @@ public class DynamicSql {
     private static final Pattern WHERE = Pattern.compile("<where>([\\s\\S]*?)</where>");
     private static final Pattern TEST = Pattern.compile("(\\w+)\\s*(!=|==)\\s*null");
     private static final Pattern LEADING_AND_OR = Pattern.compile("(?i)^\\s*(AND|OR)\\s+");
-    private static final Pattern FOREACH = Pattern.compile(
-            "<foreach collection=\"(\\w+)\" item=\"(\\w+)\" open=\"([^\"]*)\" separator=\"([^\"]*)\" close=\"([^\"]*)\">([\\s\\S]*?)</foreach>");
+    private static final Pattern FOREACH = Pattern.compile("<foreach collection=\"(\\w+)\" item=\"(\\w+)\" open=\"([^\"]*)\" separator=\"([^\"]*)\" close=\"([^\"]*)\">([\\s\\S]*?)</foreach>");
+    private static final Pattern CHOOSE = Pattern.compile("<choose>([\\s\\S]*?)</choose>");
+    private static final Pattern WHEN = Pattern.compile("<when test=\"([^\"]+)\">([\\s\\S]*?)</when>");
+    private static final Pattern OTHERWISE = Pattern.compile("<otherwise>([\\s\\S]*?)</otherwise>");
+    private static final Pattern SET = Pattern.compile("<set>([\\s\\S]*?)</set>");
+    private static final Pattern TRAILING_COMMA = Pattern.compile(",\\s*$");
 
     public static String render(String sql, Map<String, Object> named) {
         sql = sql.trim();
@@ -19,10 +23,37 @@ public class DynamicSql {
             return sql;
         }
         String body = sql.substring("<script>".length(), sql.length() - "</script>".length());
+        body = applyChoose(body, named);
         body = applyIf(body, named);
         body = applyForeach(body, named);
         body = applyWhere(body);
+        body = applySet(body);
         return body.trim();
+    }
+
+    private static String applySet(String sql) {
+        return SET.matcher(sql).replaceAll(m -> {
+            String inner = m.group(1).trim();
+            if (inner.isEmpty()) {
+                return "";
+            }
+            inner = TRAILING_COMMA.matcher(inner).replaceFirst("");
+            return Matcher.quoteReplacement(" SET " + inner);
+        });
+    }
+
+    private static String applyChoose(String sql, Map<String, Object> named) {
+        return CHOOSE.matcher(sql).replaceAll(m -> {
+            String inner = m.group(1);
+            Matcher when = WHEN.matcher(inner);
+            while (when.find()) {
+                if (eval(when.group(1), named)) {
+                    return Matcher.quoteReplacement(when.group(2));
+                }
+            }
+            Matcher otherwise = OTHERWISE.matcher(inner);
+            return otherwise.find() ? Matcher.quoteReplacement(otherwise.group(1)) : "";
+        });
     }
 
     private static String applyForeach(String sql, Map<String, Object> named) {

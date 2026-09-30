@@ -16,4 +16,23 @@
             <if test="minAge != null">AND age >= #{minAge}</if>
         </where>
     </select>
+    <select id="findByAgeBand">
+        SELECT
+        <include refid="userColumns"/>
+        FROM user
+        <where>
+            <choose>
+                <when test="minAge != null">AND age >= #{minAge}</when>
+                <otherwise>AND age >= 0</otherwise>
+            </choose>
+        </where>
+    </select>
+    <update id="updatePartial">
+        UPDATE user
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="age != null">age = #{age},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
 </mapper>
